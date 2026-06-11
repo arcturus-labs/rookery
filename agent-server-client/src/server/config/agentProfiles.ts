@@ -4,7 +4,7 @@ import { AGENT_CLIENT_ROOT } from "../paths.js";
 
 export interface AgentProfile {
   id: string;
-  type: "acp" | "pi" | "claude";
+  type: "acp" | "pi" | "claude" | "cursor";
   parentId?: string | null;
   command?: string;
   args?: string[];
@@ -14,6 +14,7 @@ export interface AgentProfile {
   extensionPaths?: string[];
   startupTimeoutMs?: number;
   mcpServers?: Array<Record<string, unknown>>;
+  model?: string;
 }
 
 type AgentProfilesFile = {
@@ -30,7 +31,7 @@ export function loadAgentProfiles(): AgentProfile[] {
 
   return parsed.profiles.filter((profile): profile is AgentProfile => {
     if (typeof profile?.id !== "string" || profile.id.length === 0) return false;
-    if (profile.type !== "acp" && profile.type !== "pi" && profile.type !== "claude") return false;
+    if (profile.type !== "acp" && profile.type !== "pi" && profile.type !== "claude" && profile.type !== "cursor") return false;
     if (profile.command !== undefined && typeof profile.command !== "string") return false;
     if (profile.args !== undefined && (!Array.isArray(profile.args) || profile.args.some((value) => typeof value !== "string"))) return false;
     if (profile.env !== undefined) {

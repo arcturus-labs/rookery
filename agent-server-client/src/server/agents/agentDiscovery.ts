@@ -3,6 +3,7 @@ import { AGENT_PROFILES } from "../config/agentProfiles.js";
 import { BaseAgent, type BaseAgentOptions } from "./BaseAgent.js";
 import { PiAgent, type PiAgentOptions } from "./PiAgent.js";
 import { ClaudeAgent, type ClaudeAgentOptions } from "./ClaudeAgent.js";
+import { CursorAgent, type CursorAgentOptions } from "./CursorAgent.js";
 import type { AgentRestartMetadata } from "./sessionLog.js";
 
 export interface AgentDefinition {
@@ -39,6 +40,10 @@ function createClaudeAgent(restartMetadata: AgentRestartMetadata | undefined, op
   return new ClaudeAgent(options, restartMetadata);
 }
 
+function createCursorAgent(restartMetadata: AgentRestartMetadata | undefined, options: CursorAgentOptions): BaseAgent {
+  return new CursorAgent(options, restartMetadata);
+}
+
 const AGENT_REGISTRY: AgentRegistryEntry[] = [
   {
     id: "PiAgent",
@@ -56,6 +61,14 @@ const AGENT_REGISTRY: AgentRegistryEntry[] = [
     create: (restartMetadata) => createClaudeAgent(restartMetadata, {
       cwd: REPO_ROOT,
       agentName: "ClaudeAgent",
+    }),
+  },
+  {
+    id: "CursorAgent",
+    parentId: null,
+    create: (restartMetadata) => createCursorAgent(restartMetadata, {
+      cwd: REPO_ROOT,
+      agentName: "CursorAgent",
     }),
   },
   ...AGENT_PROFILES.map((profile): AgentRegistryEntry => {
@@ -87,6 +100,20 @@ const AGENT_REGISTRY: AgentRegistryEntry[] = [
           agentName: profile.id,
           startupTimeoutMs: profile.startupTimeoutMs,
           mcpServers: profile.mcpServers,
+        }),
+      };
+    }
+
+    if (profile.type === "cursor") {
+      return {
+        id: profile.id,
+        parentId: profile.parentId ?? "CursorAgent",
+        create: (restartMetadata) => createCursorAgent(restartMetadata, {
+          command: profile.command,
+          cwd: profile.cwd ?? REPO_ROOT,
+          agentName: profile.id,
+          startupTimeoutMs: profile.startupTimeoutMs,
+          model: profile.model,
         }),
       };
     }

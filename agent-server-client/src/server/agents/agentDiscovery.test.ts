@@ -20,6 +20,7 @@ describe("agentDiscovery", () => {
     expect(getAgentDefinitions()).toEqual([
       { id: "PiAgent", parentId: null },
       { id: "ClaudeAgent", parentId: null },
+      { id: "CursorAgent", parentId: null },
       { id: "MyPiOpenAiAgent", parentId: "PiAgent" },
       { id: "MyClaudeAgent", parentId: "ClaudeAgent" },
       { id: "Worker", parentId: null },
