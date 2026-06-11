@@ -1,27 +1,48 @@
 # Moving to Agent Client Protocol — Engineering Checklist
 
-## Current checkpoint
+## Current checkpoint — Phase 3 complete
+
+Client boundary is now ACP-native. The temporary ACP→SessionEvent translation layer
+on the client side has been removed. The reducer speaks ACP concepts directly
+(`agent_message_chunk`, `tool_call`, `tool_call_update`, etc.).
+
+`SessionEvent` still exists server-internally (BaseAgent → SessionRoom → WebSocket
+pipeline), creating a server-side double-translation (ACP→SE→ACP). That is Phase 4
+territory.
 
 ## Immediate next to-dos
 
-1. **Browser-check the post-replay-cleanup state**
-   - product decision: chat replay now comes from ACP `session/load`
-   - `fromSequence` reconnect/replay behavior has now been removed
-   - keep environment decision persistence; it is separate
-2. **Do the ACP-only cleanup sweep now that Pi is entering through ACP**
-   - verify deprecated Pi-RPC code is actually deleted
-   - verify there is no compatibility-only launch/config path left behind
-   - verify there is no compatibility-only replay path left behind
-3. **Finish the non-native ACP adapter pass before the client-state/UI mismatch work**
-   - model them like `PiAgent`: thin runtime-specific adapters that enter Rookery through ACP
-   - `ClaudeAgent` is now in place
-   - next in this sub-phase: Cursor
-4. **Resume the internal migration checklist**
-   - next most likely work after those adapters is UI/client-state cleanup
-5. **Before the farthest-out UI work, we're going to have a conversation about it**
+1. ~~Browser-check the post-replay-cleanup state~~ (code paths verified; need browser smoke test)
+2. ~~Do the ACP-only cleanup sweep~~ (zero legacy Pi-RPC / compatibility paths found)
+3. ~~Finish the non-native ACP adapter pass~~ (CursorAgent + CursorAutoAgent done)
+4. ~~Resume the internal migration checklist — UI/client-state cleanup~~ (Phase 3 client refactor complete)
+5. **Phase 4: remove server-internal SessionEvent double-translation**
+   - Currently: ACP subprocess → BaseAgent (ACP→SessionEvent) → SessionRoom →
+     `session_event` → `sessionEventToAcp.ts` (SessionEvent→ACP) → WebSocket
+   - Target: ACP subprocess → BaseAgent → ACP passthrough → WebSocket
+   - Remove `SessionEvent`, `RoomEventStream.session_event` envelope,
+     `sessionEventToAcp.ts` translation, `acpToSessionEvent.ts` server-side usage
+6. **Phase 5: richer ACP-native UI/UX** (conversation first)
+   - permission prompts from `session/request_permission`
+   - plans, usage/cost/context window display
+   - mode/config controls
+   - stop-reason handling
 
-Recently completed cleanup:
+## Recently completed
 
+- **Phase 3 — ACP-native client reducer** (commit `2e1a445`)
+  - Created `AcpClientEvent` union replacing `SessionEvent` on the client side
+  - `RemoteAgent` processes ACP `session/update` notifications directly
+  - `ChatPanel` reducer actions use ACP concepts (agent_message_chunk, tool_call,
+    tool_call_update, etc.) instead of custom event names
+  - Removed the `acpToSessionEvent` translation hop from the client code path
+  - Block view-model types preserved unchanged
+  - All 98 tests pass, TypeScript clean
+- **Phase 2.5 — CursorAgent adapter** (commit `190c02a`)
+  - `CursorAgent` extending `BaseAgent` — Cursor's `agent acp` speaks ACP natively
+  - `authenticate` step with `cursor_login` after initialize
+  - Optional `model` option → `session/set_config_option` after `session/new`
+  - `CursorAutoAgent` profile using `model: "default[]"` (Auto instead of Composer 2.5)
 - removed `MockAgent`
 - collapsed `AcpAgent` into `BaseAgent`
 - added a thin `PiAgent` subclass for Pi-specific launch shaping
@@ -29,12 +50,21 @@ Recently completed cleanup:
 - moved the checked-in Pi profile back toward the earlier Pi-shaped config
 - removed the remaining `fromSequence` / websocket replay compatibility path
 
-Completed:
+## Completed checkpoints
 
+- **Phase 3 — ACP-native client reducer**
+  - Client reducer speaks ACP concepts directly; temporary translation layer removed
+  - `AcpClientEvent` union in `src/client/acpClientTypes.ts`
+  - `RemoteAgent` emits `AcpClientEvent` instead of `SessionEvent`
+  - `ChatPanel.applyAcpEvent` dispatches ACP-shaped actions
+- **Phase 2.5 — non-native ACP adapters**
+  - `ClaudeAgent` — thin adapter using `@agentclientprotocol/claude-agent-acp`
+  - `CursorAgent` — thin adapter using Cursor's built-in `agent acp` ACP server
+  - `CursorAutoAgent` profile with `model: "default[]"` to avoid Composer 2.5 quota issues
 - **Phase 1 boundary migration checkpoint**
   - websocket boundary now uses ACP-shaped JSON-RPC
   - `RemoteAgent` speaks ACP on the wire
-  - a temporary ACP -> `SessionEvent` client adapter still exists
+  - a temporary ACP → `SessionEvent` client adapter existed (now removed in Phase 3)
   - helper script supports both translated and raw ACP inspection
 - **Pi ACP subprocess checkpoint**
   - evaluated `pi-acp` successfully

@@ -1,32 +1,42 @@
 # Moving to Agent Client Protocol
 
-## Current checkpoint
+## Current checkpoint — Phase 3 complete
+
+Client boundary is now ACP-native. The temporary ACP→SessionEvent translation on the
+client side has been removed. `ChatPanel` reducer actions use ACP concepts directly.
+
+`SessionEvent` still exists server-internally (BaseAgent → SessionRoom →
+`session_event` → `sessionEventToAcp.ts` → ACP), creating a double-translation on
+the server side. That cleanup is Phase 4.
 
 ## Immediate next to-dos
 
-These are the next things we should do, in order:
+1. ~~Browser-check the post-replay-cleanup state~~ (code verified; browser smoke test remains)
+2. ~~ACP-only cleanup sweep~~ (zero legacy Pi-RPC / compatibility paths found)
+3. ~~Non-native ACP adapters~~ (ClaudeAgent + CursorAgent + CursorAutoAgent done)
+4. ~~Client-state/UI refactor~~ (Phase 3 complete — ACP-native reducer)
+5. **Phase 4: remove server-internal SessionEvent double-translation**
+   - Collapse: ACP → SessionEvent → ACP into ACP → direct passthrough
+   - Remove `SessionEvent` type, `session_event` envelope, `sessionEventToAcp.ts`,
+     and server-side `acpToSessionEvent.ts` usage
+6. **Phase 5: richer ACP-native UI/UX** (conversation first)
 
-1. **Browser-check the post-replay-cleanup state.**
-   - Product decision stands: chat replay comes from ACP (`session/load`), not from Rookery transcript persistence.
-   - `fromSequence` reconnect/replay scaffolding has now been removed.
-   - Keep environment decision persistence; it is separate.
-2. **Finish the ACP-only cleanup pass.**
-   - Confirm deprecated Pi-RPC-era code is actually gone.
-   - Confirm there is no compatibility-only replay path left behind.
-3. **Finish the non-native ACP adapter pass before the client-state/UI mismatch work.**
-   - Treat these like `PiAgent`: thin runtime-specific adapters that enter Rookery through ACP.
-   - `ClaudeAgent` is now in place.
-   - Next in this sub-phase: Cursor.
-4. **Then continue with client-state/UI follow-through.**
-5. **Before the farthest-out UI changes, we're going to have a conversation about it.**
+Recently completed:
 
-Recently completed cleanup:
-
-- removed `MockAgent`
-- collapsed `AcpAgent` into `BaseAgent`
+- **Phase 3 — ACP-native client reducer**
+  - `AcpClientEvent` union replaces `SessionEvent` on the client side
+  - `RemoteAgent` processes ACP `session/update` notifications directly
+  - `ChatPanel` reducer actions use ACP concepts; `applyAcpEvent` replaces `applyServerEvent`
+  - Removed `acpToSessionEvent` translation from the client code path
+  - Block view-model types preserved unchanged
+- **Phase 2.5 — non-native ACP adapters**
+  - `CursorAgent` — speaks Cursor's native `agent acp` ACP server, no wrapper needed
+  - `CursorAutoAgent` profile with `model: "default[]"` (Auto model, avoids Composer 2.5 quota)
+  - `ClaudeAgent` already in place using `@agentclientprotocol/claude-agent-acp`
+- removed `MockAgent`, collapsed `AcpAgent` into `BaseAgent`
 - reintroduced a thin `PiAgent` subclass for Pi-specific launch shaping
-- removed the checked-in `scripts/pi-with-rookery-profile.mjs` wrapper and generate the Pi launch helper internally at runtime instead
-- updated `agent-server-client/config/agent-profiles.json` back to a Pi-shaped profile (`type: "pi"`, `args: ["-e", "../my-agent"]`)
+- removed the checked-in `scripts/pi-with-rookery-profile.mjs` wrapper; generate internally at runtime
+- updated `agent-server-client/config/agent-profiles.json` back to a Pi-shaped profile
 - removed the remaining `fromSequence` / Rookery-owned websocket replay scaffolding
 
 This changes the migration emphasis slightly:
@@ -54,14 +64,14 @@ Where we are leaving off now:
 - **Boundary protocol:** ACP-shaped
 - **Pi subprocess boundary:** ACP-shaped through `pi-acp`
 - **Server runtime bridge:** generic `BaseAgent`
-- **UI state/reducer:** still legacy `SessionEvent`-driven via translation
-- **Transcript persistence:** Rookery-owned durable transcript persistence has been removed from the replay path, and the remaining websocket replay scaffolding has now been deleted
+- **UI state/reducer:** ACP-native (`AcpClientEvent` → reducer actions)
+- **Transcript persistence:** ACP `session/load` for replay; old websocket replay scaffolding deleted
+- **Remaining legacy:** server-internal `SessionEvent` double-translation (Phase 4 territory)
+- **Agent adapters:** PiAgent, ClaudeAgent, CursorAgent all in place
 
-So the next major steps are now:
+So the next major step is:
 
-- **Immediate priority:** browser-check the cleanup checkpoint and confirm nothing deprecated remains
-- **Then:** add Cursor and Claude Code adapters as richer non-native ACP test cases
-- **Then:** continue with the ACP-friendly UI state work
+- **Phase 4:** remove the server-internal `SessionEvent` double-translation (ACP→SE→ACP → direct ACP passthrough)
 
 When resuming work, start by re-running the helper script commands above to confirm both PiAgent and MyPiAgent still behave correctly over ACP.
 
