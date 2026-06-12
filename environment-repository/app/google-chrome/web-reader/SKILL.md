@@ -58,3 +58,14 @@ reading and can detect when the user navigates.
   `/window-text` when it has the content, use `/screen-text` for coverage.
 - Only on-screen content is visible — to read more of a long page, ask the user
   to scroll, then re-read.
+
+## Canvas-based editors (Google Docs, Figma, Notion, etc.)
+
+These render content in `<canvas>` or custom editing surfaces that **never**
+appear in the AX tree. `/window-text` returns only browser chrome; you must use
+`/screen-text` (OCR) for every read. `/ax-elements` shows toolbar buttons but
+not the editing area itself.
+
+For *writing* into these editors, use the **web-writer** skill — it covers
+establishing focus via double-click, pasting via AppleScript, and verifying
+results with OCR.
