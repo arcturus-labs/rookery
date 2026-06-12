@@ -48,3 +48,35 @@ card) — and note that Electron apps like Cursor expose their accessibility tre
 only partially, so you may see the open file name and UI chrome but not every
 character of a large document. For the exact file contents, just read the file
 from disk with your normal tools.
+
+## Driving Cursor (computer use, AX-driven)
+
+When the user asks you to *click* or *operate* Cursor's UI, use the
+accessibility-driven control loop — no screenshots needed, works with a
+text-only model:
+
+```bash
+# 1. List actionable elements with their on-screen coordinates
+curl -s http://127.0.0.1:8765/ax-elements -H "Authorization: Bearer $TOKEN"
+# { "ok": true, "elements": [
+#     { "id": 12, "role": "AXButton", "label": "Run", "centerX": 920, "centerY": 64, ... }, … ] }
+
+# 2. Pick the element you want by its label/role, then click its center
+curl -s -X POST http://127.0.0.1:8765/input -H "Authorization: Bearer $TOKEN" \
+  -d '{"action":"click","x":920,"y":64}'
+
+# Other actions: move, doubleClick {x,y}; type {text}; key {key,modifiers}
+curl -s -X POST http://127.0.0.1:8765/input -H "Authorization: Bearer $TOKEN" \
+  -d '{"action":"key","key":"return","modifiers":["cmd"]}'
+```
+
+Discipline:
+
+- **Re-read `/ax-elements` after every action** — the UI changes; cached
+  coordinates go stale.
+- If `/input` returns 403 "computer control disabled", the user must flip the
+  **Computer Control** toggle on in the menu bar app. Tell them; don't retry.
+- Confirm destructive actions with the user before clicking.
+- Cursor is Electron, so `/ax-elements` may miss editor-internal controls. For
+  editing code, prefer reading/writing files directly over clicking; reserve
+  control for buttons, tabs, dialogs, and menus the AX tree does expose.
