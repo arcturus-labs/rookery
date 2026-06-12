@@ -53,14 +53,18 @@ final class AgentStationModel: ObservableObject {
     @Published var offerLoading = false
     @Published var offerError = ""
 
-    // Foreground-app environment provider
+    // Foreground-app environment provider + Mac bridge (Tier 1/2)
     @Published var foregroundEnvironmentId: String?
     @Published var foregroundAppName: String?
+    @Published var foregroundWindowTitle: String?
+    @Published var accessibilityTrusted = false
+    @Published var bridgePort: UInt16 = 0
 
     let api = AgentStationAPI()
     private let socket = AcpSocket()
     private let serverController = ServerController()
     private let foregroundMonitor = ForegroundAppMonitor()
+    private let bridge = MacBridge()
     private var healthTimer: Timer?
     private var blockCounter = 0
     private var enteredEnvironments: Set<String> = []
@@ -101,7 +105,12 @@ final class AgentStationModel: ObservableObject {
         foregroundMonitor.onForegroundChange = { [weak self] app in
             self?.handleForegroundApp(app)
         }
+        foregroundMonitor.onContextRefresh = { [weak self] app, title in
+            self?.handleContextRefresh(app: app, title: title)
+        }
+        startBridge()
         foregroundMonitor.start()
+        accessibilityTrusted = AXReader.isTrusted()
         Task {
             await refreshHealth()
         }
@@ -271,6 +280,7 @@ final class AgentStationModel: ObservableObject {
     func quitApp() {
         socket.disconnect()
         foregroundMonitor.stop()
+        bridge.stop()
         let environmentToRelease = foregroundEnvironmentId
         Task {
             // Best-effort: end the foreground episode so the server doesn't
@@ -721,9 +731,12 @@ final class AgentStationModel: ObservableObject {
     }
 
     private func handleForegroundApp(_ app: ForegroundApp) {
+        let title = AXReader.focusedWindowTitle(pid: app.pid)
         foregroundAppName = app.name
+        foregroundWindowTitle = title
         let environmentId = knownAppEnvironmentSlug(for: app).map { "app:\($0)" }
-        providerLog("foreground: \(app.name) [\(app.bundleId)] -> \(environmentId ?? "no environment")")
+        providerLog("foreground: \(app.name) [\(app.bundleId)] title=\(title ?? "nil") -> \(environmentId ?? "no environment")")
+        updateBridgeContext(app: app, title: title, environmentId: environmentId)
         guard environmentId != foregroundEnvironmentId else {
             return
         }
@@ -736,15 +749,83 @@ final class AgentStationModel: ObservableObject {
                     providerLog("unavailable ok: \(previous)")
                 }
                 if let environmentId {
+                    var metadata: [String: JSONValue] = ["bundleId": .string(app.bundleId)]
+                    if let title {
+                        metadata["windowTitle"] = .string(title)
+                    }
                     try await api.registerEnvironment(
                         id: environmentId,
                         sourceName: app.name,
-                        metadata: ["bundleId": .string(app.bundleId)]
+                        metadata: metadata
                     )
                     providerLog("register ok: \(environmentId)")
                 }
             } catch {
                 providerLog("provider error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// In-app context change (e.g. switching Slack channels) — refresh the
+    /// bridge's live /context without re-registering the environment.
+    private func handleContextRefresh(app: ForegroundApp, title: String?) {
+        foregroundAppName = app.name
+        foregroundWindowTitle = title
+        updateBridgeContext(app: app, title: title, environmentId: foregroundEnvironmentId)
+    }
+
+    // MARK: - Mac bridge (Tier 2)
+
+    private func startBridge() {
+        let port = UInt16(UserDefaults.standard.integer(forKey: "MacBridgePort"))
+        let chosen = port == 0 ? 8765 : port
+        bridge.runAppleScript = { script in
+            DispatchQueue.main.sync {
+                var error: NSDictionary?
+                let result = NSAppleScript(source: script)?.executeAndReturnError(&error)
+                if let error {
+                    return (ok: false, output: "\(error[NSAppleScript.errorMessage] ?? error)")
+                }
+                return (ok: true, output: result?.stringValue ?? "")
+            }
+        }
+        bridge.openURL = { urlString in
+            guard let url = URL(string: urlString) else {
+                return false
+            }
+            return DispatchQueue.main.sync {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        bridge.start(port: chosen)
+        bridgePort = chosen
+    }
+
+    private func updateBridgeContext(app: ForegroundApp, title: String?, environmentId: String?) {
+        let payload: [String: Any] = [
+            "frontmostApp": app.name,
+            "bundleId": app.bundleId,
+            "windowTitle": title ?? NSNull(),
+            "environmentId": environmentId ?? NSNull(),
+            "accessibilityTrusted": AXReader.isTrusted(),
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            bridge.updateContext(data)
+        }
+    }
+
+    func requestAccessibility() {
+        // Prompts on first call; subsequent calls just re-check. The user
+        // completes the grant in System Settings, so we poll for the flip.
+        _ = AXReader.isTrusted(promptIfNeeded: true)
+        Task {
+            for _ in 0..<60 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if AXReader.isTrusted() {
+                    accessibilityTrusted = true
+                    foregroundMonitor.refreshTitleNow()
+                    return
+                }
             }
         }
     }

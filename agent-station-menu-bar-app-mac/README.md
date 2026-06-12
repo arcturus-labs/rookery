@@ -59,6 +59,48 @@ and the native approval view shows the skill files before anything loads.
 
 Provider activity is traced to `/tmp/agent-station-menubar.log` for debugging.
 
+### Tier 1 — window-title perception
+
+App *identity* is free (NSWorkspace), but reading inside another app — its
+focused **window title** — needs the macOS **Accessibility** permission. Grant
+it from the **Context Bridge** card in the panel (or System Settings → Privacy
+& Security → Accessibility). Once granted, the title is included in
+registration metadata and in the live bridge context. Window titles are
+surprisingly rich: Slack's is `#channel (Workspace) - Slack`, a browser's is
+the tab title, most editors show the document name. Title changes *within* an
+app (switching Slack channels) are picked up by a 2 s poll and pushed to the
+bridge without re-registering.
+
+> Unsigned/ad-hoc dev builds can lose the Accessibility grant on each rebuild
+> because TCC keys on code identity. Re-grant after a rebuild, or sign the app
+> with a stable identity.
+
+### Tier 2 — the Mac bridge
+
+The app runs a loopback HTTP server (default `http://127.0.0.1:8765`, override
+with `defaults write com.rookery.AgentStationMenuBar MacBridgePort <n>`) that
+the agent's shell tool can `curl` to perceive and drive the Mac:
+
+| Route | Body | Returns |
+|-------|------|---------|
+| `GET /context` | — | `{ frontmostApp, bundleId, windowTitle, environmentId, accessibilityTrusted }` |
+| `GET /health` | — | `{ ok, service }` |
+| `POST /applescript` | `{ "script": "…" }` | `{ ok, output }` |
+| `POST /open-url` | `{ "url": "…" }` | `{ ok }` |
+
+No server-side change was needed: Pi/Claude agents already have a shell tool,
+so an app's skill bundle simply documents these endpoints and the agent calls
+them. `POST /applescript` targeting another app triggers a one-time macOS
+Automation consent prompt (declared via `NSAppleEventsUsageDescription`).
+Centralizing these grants in one user-visible app is the point — Accessibility,
+Automation, and (later) Screen Recording are approved once here instead of
+being attributed to the node server's subprocesses.
+
+The shipped `environment-repository/app/slack/` bundle is a worked example:
+focusing Slack offers a skill that reads `/context` to learn the current
+channel and uses `slack://` deep links + AppleScript through the bridge to
+navigate and draft messages.
+
 ## Getting it running — exact steps
 
 Prerequisites: Xcode, [xcodegen](https://github.com/yonaskolb/XcodeGen)

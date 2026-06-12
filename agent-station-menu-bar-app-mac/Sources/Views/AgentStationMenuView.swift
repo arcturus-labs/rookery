@@ -99,6 +99,7 @@ private struct HomeContent: View {
             if model.foregroundEnvironmentId != nil {
                 foregroundEnvironmentCard
             }
+            awarenessCard
             if model.currentSession != nil {
                 currentChatCard
             }
@@ -251,6 +252,63 @@ private struct HomeContent: View {
                 }
                 Spacer()
                 StatusDot(tint: PanelPalette.success)
+            }
+
+            if let title = model.foregroundWindowTitle, !title.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.window")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(PanelPalette.textMuted)
+                    Text(title)
+                        .font(.caption)
+                        .foregroundStyle(PanelPalette.textNormal)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+        }
+    }
+
+    private var awarenessCard: some View {
+        PanelCard {
+            HStack(spacing: 8) {
+                Label("Context Bridge", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(model.bridgePort > 0 ? ":\(String(model.bridgePort))" : "off")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(PanelPalette.textMuted)
+                StatusDot(tint: model.bridgePort > 0 ? PanelPalette.success : PanelPalette.danger)
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: model.accessibilityTrusted ? "checkmark.shield.fill" : "exclamationmark.shield")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(model.accessibilityTrusted ? PanelPalette.success : PanelPalette.warning)
+                Text(model.accessibilityTrusted
+                     ? "Accessibility granted — window titles visible"
+                     : "Grant Accessibility to read window titles")
+                    .font(.caption)
+                    .foregroundStyle(PanelPalette.textMuted)
+                    .lineLimit(2)
+                Spacer(minLength: 4)
+                if !model.accessibilityTrusted {
+                    Button {
+                        model.requestAccessibility()
+                    } label: {
+                        Text("Grant")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Capsule().fill(PanelPalette.accent))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open System Settings → Privacy → Accessibility")
+                    .pointingHandOnHover()
+                }
             }
         }
     }

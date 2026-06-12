@@ -29,5 +29,7 @@
 	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Rookery</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Agent Station drives other apps (e.g. opening a Slack channel) on your behalf when you approve an app environment.</string>
 </dict>
 </plist>
