@@ -21,7 +21,7 @@ final class AcpSocket {
     private var pendingPromptIds: Set<String> = []
 
     func connect(sessionId: String, webSocketURL: URL) {
-        disconnect()
+        teardown()
         generation += 1
         let currentGeneration = generation
         self.sessionId = sessionId
@@ -36,12 +36,19 @@ final class AcpSocket {
     }
 
     func disconnect() {
+        teardown()
+    }
+
+    /// Intentional teardown is silent: `onConnectionChange(false)` is reserved
+    /// for genuine transport failures, so replacing the socket (e.g. switching
+    /// sessions) never looks like a connection loss to the model.
+    private func teardown() {
         generation += 1
         pendingPromptIds.removeAll()
         task?.cancel(with: .normalClosure, reason: nil)
         task = nil
         sessionId = nil
-        setConnected(false)
+        isConnected = false
     }
 
     func sendPrompt(text: String) {

@@ -463,12 +463,17 @@ final class AgentStationModel: ObservableObject {
     private func handleSocketConnectionChange(_ connected: Bool) {
         socketConnected = connected
         if connected {
+            // Cancel any armed reconnect so a successful connection can't be
+            // followed by a stale reconnect cycle.
+            reconnectTask?.cancel()
+            reconnectTask = nil
             reconnecting = false
             return
         }
         if isRunning {
             isRunning = false
             statusLine = ""
+            finalizeStreamingBlocks()
             appendErrorBlock(source: "connection", message: "Connection lost while the agent was running.")
         }
         if currentSession != nil {
