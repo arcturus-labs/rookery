@@ -5,6 +5,7 @@
 
 # Local scratch space
 IGNORED/
+haxxor_docs/
 
 # Local app state
 .var/
