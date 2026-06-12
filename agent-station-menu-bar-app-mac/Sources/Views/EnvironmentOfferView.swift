@@ -200,11 +200,11 @@ struct EnvironmentOfferDetail: View {
         .padding(9)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.black.opacity(0.26))
+                .fill(PanelPalette.backgroundPrimary)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(.white.opacity(0.14))
+                .strokeBorder(PanelPalette.border)
         )
     }
 

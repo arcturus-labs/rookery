@@ -1,21 +1,48 @@
 import AppKit
 import SwiftUI
 
+/// Design tokens lifted from the web client
+/// (`agent-server-client/src/client/styles/tokens.css`).
 enum PanelPalette {
-    static let success = Color(red: 0.24, green: 0.92, blue: 0.38)
-    static let warning = Color(red: 1.0, green: 0.62, blue: 0.16)
-    static let danger = Color(red: 1.0, green: 0.35, blue: 0.36)
-    static let info = Color(red: 0.28, green: 0.62, blue: 1.0)
-    static let secondaryText = Color.white.opacity(0.70)
+    static let accent = Color(red: 0.486, green: 0.227, blue: 0.929)        // #7c3aed
+    static let accentHover = Color(red: 0.545, green: 0.361, blue: 0.965)   // #8b5cf6
+    static let backgroundPrimary = Color(red: 0.098, green: 0.078, blue: 0.122)   // #19141f
+    static let backgroundSecondary = Color(red: 0.137, green: 0.110, blue: 0.176) // #231c2d
+    static let border = Color(red: 0.239, green: 0.192, blue: 0.302)        // #3d314d
+    static let hover = Color(red: 0.184, green: 0.149, blue: 0.231)         // #2f263b
+    static let textNormal = Color(red: 0.929, green: 0.914, blue: 0.961)    // #ede9f5
+    static let textMuted = Color(red: 0.710, green: 0.663, blue: 0.788)     // #b5a9c9
+
+    static let success = Color(red: 0.624, green: 0.941, blue: 0.706)       // #9ff0b4
+    static let warning = Color(red: 0.973, green: 0.831, blue: 0.467)       // #f8d477
+    static let danger = Color(red: 1.0, green: 0.612, blue: 0.639)          // #ff9ca3
+    static let info = accent
+    static let secondaryText = textMuted
+
+    /// `color-mix(in srgb, accent 35%, background-primary)` — thinking bubble.
+    static let thinkingFill = Color(red: 0.234, green: 0.131, blue: 0.404)
 }
 
+/// The web client's body background: a 135° plum gradient with a violet
+/// radial glow in the top-left corner.
 struct PanelBackground: View {
     var body: some View {
         ZStack {
-            Color.black.opacity(0.72)
-            Rectangle()
-                .fill(.ultraThinMaterial)
-            Color.black.opacity(0.30)
+            LinearGradient(
+                colors: [
+                    Color(red: 0.063, green: 0.051, blue: 0.086),  // #100d16
+                    PanelPalette.backgroundPrimary,                 // #19141f
+                    Color(red: 0.141, green: 0.106, blue: 0.196),  // #241b32
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(
+                colors: [PanelPalette.accent.opacity(0.28), .clear],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 430
+            )
         }
     }
 }
@@ -34,16 +61,12 @@ struct PanelCard<Content: View>: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(0.10))
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.thinMaterial)
-                )
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(PanelPalette.backgroundSecondary.opacity(0.88))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(.white.opacity(0.18))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12))
         )
     }
 }
@@ -100,7 +123,7 @@ struct CompactActionButton: View {
                     .frame(width: 24, height: 24)
                     .background(
                         Circle()
-                            .fill(prominence == .filled ? tint.gradient : tint.opacity(0.16).gradient)
+                            .fill(prominence == .filled ? Color.white.opacity(0.16).gradient : tint.opacity(0.16).gradient)
                     )
 
                 Text(title)
@@ -128,18 +151,20 @@ struct CompactActionButton: View {
         .pointingHandOnHover()
     }
 
+    // Web button DNA: filled buttons are solid accent violet that lighten on
+    // hover; subtle buttons are dark plum with the token border.
     private var buttonFill: Color {
         if prominence == .filled {
-            return tint.opacity(isHovering && isEnabled ? 0.24 : 0.14)
+            return isHovering && isEnabled ? PanelPalette.accentHover : PanelPalette.accent
         }
-        return Color.black.opacity(isHovering && isEnabled ? 0.18 : 0.08)
+        return isHovering && isEnabled ? PanelPalette.hover : PanelPalette.backgroundPrimary.opacity(0.55)
     }
 
     private var buttonStroke: Color {
         if prominence == .filled {
-            return tint.opacity(isHovering && isEnabled ? 0.44 : 0.28)
+            return PanelPalette.accentHover.opacity(isHovering && isEnabled ? 0.9 : 0.5)
         }
-        return .white.opacity(isHovering && isEnabled ? 0.24 : 0.12)
+        return PanelPalette.border
     }
 }
 
@@ -155,19 +180,15 @@ struct FooterIconButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(PanelPalette.textNormal)
                 .frame(width: 34, height: 30)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.black.opacity(isHovering && isEnabled ? 0.20 : 0.10))
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(.thinMaterial)
-                        )
+                        .fill(isHovering && isEnabled ? PanelPalette.hover : PanelPalette.backgroundSecondary.opacity(0.85))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(.white.opacity(isHovering && isEnabled ? 0.30 : 0.16))
+                        .strokeBorder(isHovering && isEnabled ? PanelPalette.accentHover.opacity(0.6) : PanelPalette.border)
                 )
                 .opacity(isEnabled ? 1 : 0.45)
         }
@@ -205,7 +226,7 @@ struct HoverRowBackground: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isHovering ? Color.white.opacity(0.08) : Color.clear)
+                    .fill(isHovering ? PanelPalette.hover : Color.clear)
             )
             .onHover { isHovering = $0 }
     }

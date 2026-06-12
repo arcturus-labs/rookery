@@ -129,7 +129,7 @@ private struct HomeContent: View {
         PanelCard {
             HStack(alignment: .top, spacing: 14) {
                 VStack(spacing: 7) {
-                    StatusGlyph(systemImage: "bird", tint: model.serverStatusTint, size: 34)
+                    StatusGlyph(systemImage: "bird", tint: PanelPalette.accent, size: 34)
 
                     Text(statusBadge)
                         .font(.caption2)
@@ -449,11 +449,11 @@ private struct SessionsDetail: View {
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.black.opacity(0.24))
+                            .fill(PanelPalette.backgroundPrimary.opacity(0.75))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(.white.opacity(0.20))
+                            .strokeBorder(PanelPalette.border)
                     )
                     .onSubmit {
                         startNew()
@@ -468,7 +468,7 @@ private struct SessionsDetail: View {
                         .frame(width: 34, height: 34)
                         .background(
                             Circle()
-                                .fill(PanelPalette.info.gradient)
+                                .fill(PanelPalette.accent)
                         )
                 }
                 .buttonStyle(.plain)
