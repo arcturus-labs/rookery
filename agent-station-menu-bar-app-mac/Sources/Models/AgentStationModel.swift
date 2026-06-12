@@ -736,6 +736,7 @@ final class AgentStationModel: ObservableObject {
     }
 
     private func handleForegroundApp(_ app: ForegroundApp) {
+        AXReader.primeAccessibility(pid: app.pid)
         let title = AXReader.focusedWindowTitle(pid: app.pid)
         foregroundAppName = app.name
         foregroundWindowTitle = title

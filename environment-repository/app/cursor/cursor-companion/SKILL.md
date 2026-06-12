@@ -44,10 +44,14 @@ curl -s http://127.0.0.1:8765/window-text -H "Authorization: Bearer $TOKEN"
 When the user asks "what am I looking at?" or "what's on my screen?", call
 `/window-text` and answer from its `text`. If `text` is empty or `ok` is false,
 Accessibility isn't granted (ask them to click **Grant** on the Context Bridge
-card) — and note that Electron apps like Cursor expose their accessibility tree
-only partially, so you may see the open file name and UI chrome but not every
-character of a large document. For the exact file contents, just read the file
-from disk with your normal tools.
+card).
+
+Cursor is Electron, and the menu bar app enables its web-content accessibility
+tree on the fly — but that tree builds **asynchronously**, so the *first* read
+right after the app comes to the foreground can be sparse (just chrome/menus).
+If the result looks like only toolbar/menu labels, wait ~1s and read again.
+For the exact contents of a large document, reading the file from disk is still
+more reliable than the AX tree.
 
 ## Driving Cursor (computer use, AX-driven)
 

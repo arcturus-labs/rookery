@@ -11,6 +11,25 @@ enum AXReader {
         return AXIsProcessTrustedWithOptions(options)
     }
 
+    /// Chromium/Electron render web content in a separate process whose
+    /// accessibility tree is off by default, so reads only see the browser
+    /// chrome (tabs/toolbar). Setting the Chromium-specific `AXManualAccessibility`
+    /// attribute makes it build the web-content tree on demand. Harmless on
+    /// non-Chromium apps (they reject the unknown attribute). The tree builds
+    /// asynchronously, so the first read after enabling may still be sparse.
+    private static func enableWebContentAccessibility(_ appElement: AXUIElement) {
+        AXUIElementSetAttributeValue(appElement, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+
+    /// Warm up an app's accessibility tree (call when it comes to the
+    /// foreground) so content is ready by the time the agent reads it.
+    static func primeAccessibility(pid: pid_t) {
+        guard isTrusted() else {
+            return
+        }
+        enableWebContentAccessibility(AXUIElementCreateApplication(pid))
+    }
+
     /// Title of the focused (or main) window of the app owning `pid`, or nil if
     /// AX isn't trusted / the app exposes no titled window.
     static func focusedWindowTitle(pid: pid_t) -> String? {
@@ -18,6 +37,7 @@ enum AXReader {
             return nil
         }
         let appElement = AXUIElementCreateApplication(pid)
+        enableWebContentAccessibility(appElement)
         var windowRef: AnyObject?
         if AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowRef) != .success {
             if AXUIElementCopyAttributeValue(appElement, kAXMainWindowAttribute as CFString, &windowRef) != .success {
@@ -46,6 +66,7 @@ enum AXReader {
             return nil
         }
         let appElement = AXUIElementCreateApplication(pid)
+        enableWebContentAccessibility(appElement)
         var windowRef: AnyObject?
         if AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowRef) != .success {
             if AXUIElementCopyAttributeValue(appElement, kAXMainWindowAttribute as CFString, &windowRef) != .success {
@@ -81,6 +102,7 @@ enum AXReader {
             return nil
         }
         let appElement = AXUIElementCreateApplication(pid)
+        enableWebContentAccessibility(appElement)
         var windowRef: AnyObject?
         if AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowRef) != .success {
             if AXUIElementCopyAttributeValue(appElement, kAXMainWindowAttribute as CFString, &windowRef) != .success {
