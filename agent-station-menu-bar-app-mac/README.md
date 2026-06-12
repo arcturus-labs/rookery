@@ -1,11 +1,13 @@
 # Agent Station Menu Bar (macOS)
 
 A native SwiftUI menu bar client for [Agent Station](../README.md) — talk to
-your Pi / Claude / Cursor agents from the macOS menu bar. The panel design
-(dark translucent cards, slide-in detail views, hover affordances) follows the
-Stoa Scribe menu bar app; the functionality is the full Agent Station
-embeddable client, implemented natively against the server's REST + ACP
-JSON-RPC WebSocket protocol.
+your Pi / Claude / Cursor agents from the macOS menu bar. The panel layout and
+interaction model (slide-in detail views, hover affordances) follow the Stoa
+Scribe menu bar app; the visual design tokens are lifted from the Agent
+Station web client (`agent-server-client/src/client/styles/tokens.css`) so the
+two clients share one look. Functionality is the full Agent Station embeddable
+client, implemented natively against the server's REST + ACP JSON-RPC
+WebSocket protocol.
 
 ## Features
 
@@ -28,34 +30,80 @@ JSON-RPC WebSocket protocol.
   launch `npm run dev` for the repo and tail its log
   (`~/Library/Logs/AgentStationMenuBar/server.log`).
 
-## Build
+## Getting it running — exact steps
 
-Requires Xcode and [xcodegen](https://github.com/yonaskolb/XcodeGen)
-(`brew install xcodegen`).
+Prerequisites: Xcode, [xcodegen](https://github.com/yonaskolb/XcodeGen)
+(`brew install xcodegen`), and Node (for the Agent Station server).
 
 ```zsh
-cd agent-station-menu-bar-app-mac
+# 1. Start the Agent Station server (skip if it's already running)
+cd /Users/gdc/rookery
+npm run dev
+# verify: curl http://127.0.0.1:3000/api/health  ->  {"ok":true,...}
+
+# 2. Generate the Xcode project and build the app
+cd /Users/gdc/rookery/agent-station-menu-bar-app-mac
 xcodegen generate
-xcodebuild -project AgentStationMenuBar.xcodeproj -scheme AgentStationMenuBar -configuration Debug build
-```
+xcodebuild -project AgentStationMenuBar.xcodeproj \
+  -scheme AgentStationMenuBar -configuration Debug build
 
-## Run
-
-```zsh
-APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Build/Products/Debug/AgentStationMenuBar.app' -print -quit)
+# 3. Launch it
+APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData \
+  -path '*/Build/Products/Debug/AgentStationMenuBar.app' -print -quit)
 open "$APP_PATH"
 ```
 
-The app appears only in the menu bar (no Dock icon) as a bird. The icon fills
-and turns orange when an environment offer is pending, and tints blue while a
-run is in flight.
+Look for the **bird icon** in the menu bar (no Dock icon — it's an
+`LSUIElement` app). The icon fills and turns amber when an environment offer
+is pending, and tints violet while a run is in flight. If you don't see it,
+read the troubleshooting section below — on a crowded menu bar this is
+expected, not a bug.
 
-The Agent Station server is expected at `http://127.0.0.1:3000` (start it with
-`npm run dev` at the repo root, or use the panel's Start Server button). The
-repo root is derived from this package's source location; override it with:
+To kill and relaunch (e.g. after a rebuild):
+
+```zsh
+pkill -f AgentStationMenuBar; sleep 1; open "$(find \
+  ~/Library/Developer/Xcode/DerivedData \
+  -path '*/Build/Products/Debug/AgentStationMenuBar.app' -print -quit)"
+```
+
+The repo root (used by the panel's Start Server button) is derived from this
+package's source location; override it with:
 
 ```zsh
 defaults write com.rookery.AgentStationMenuBar RookeryRepoRoot /path/to/rookery
+```
+
+## Troubleshooting: the icon isn't in the menu bar
+
+On notch Macs, macOS silently hides status items that don't fit — there is no
+overflow indicator; they just vanish. Worse, each item's position is
+*persisted* (distance from the right screen edge) in the app's defaults, so if
+the app's first launch lands it in the hidden zone, it stays hidden on every
+relaunch. Diagnose and fix:
+
+```zsh
+# Is a position stored, and where? (~870+ on a 1512pt display = hidden zone)
+defaults read com.rookery.AgentStationMenuBar "NSStatusItem Preferred Position Item-0"
+
+# Fix: quit the app, then pin the item into the visible right-hand cluster
+pkill -f AgentStationMenuBar
+defaults write com.rookery.AgentStationMenuBar \
+  "NSStatusItem Preferred Position Item-0" -float 400
+open "$APP_PATH"
+```
+
+Once visible you can ⌘-drag the icon and macOS persists wherever you drop it.
+Long-term, a menu bar manager (e.g. Ice: `brew install --cask
+jordanbaird-ice`, or Bartender) avoids the overflow cull entirely.
+
+**Window-mode escape hatch** — run the panel as a regular floating window
+(works regardless of menu bar space; re-running `open` on the app brings the
+window back after closing it):
+
+```zsh
+defaults write com.rookery.AgentStationMenuBar ShowPanelWindow -bool true   # on
+defaults write com.rookery.AgentStationMenuBar ShowPanelWindow -bool false  # off
 ```
 
 ## Notes on the wire protocol
@@ -71,3 +119,6 @@ defaults write com.rookery.AgentStationMenuBar RookeryRepoRoot /path/to/rookery
   socket open while a session is current — including while the panel is
   closed — and transparently restarts the room (re-`POST /api/agent/start`)
   when reconnecting.
+- Intentional socket teardowns (switching sessions) are silent; only genuine
+  transport failures trigger the reconnect path, and a successful connection
+  cancels any armed reconnect.
