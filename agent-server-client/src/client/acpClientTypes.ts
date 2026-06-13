@@ -3,6 +3,7 @@
  * Replaces the old SessionEvent translation layer.
  */
 import type { AgentRunStatus } from "../shared/agent.js";
+import type { AcpConfigOption, AcpPermissionOption, AcpPermissionToolCall, AcpPlanEntry, AcpSessionMode } from "../shared/acp.js";
 
 export type AcpClientEvent =
   | AcpClientStatusChanged
@@ -12,6 +13,12 @@ export type AcpClientEvent =
   | AcpClientAgentThoughtChunk
   | AcpClientToolCallStarted
   | AcpClientToolCallUpdate
+  | AcpClientPermissionRequest
+  | AcpClientPlanUpdate
+  | AcpClientUsageUpdate
+  | AcpClientModesState
+  | AcpClientCurrentModeUpdate
+  | AcpClientConfigOptionUpdate
   | AcpClientRunCompleted
   | AcpClientRunFailed
   | AcpClientConnectionError
@@ -63,6 +70,41 @@ export interface AcpClientToolCallUpdate {
   toolName?: string;
   /** Tool output text (for completed) or error message (for failed). */
   output?: string;
+}
+
+export interface AcpClientPermissionRequest {
+  type: "acp_permission_request";
+  requestId: string;
+  toolCall: AcpPermissionToolCall;
+  options: AcpPermissionOption[];
+}
+
+export interface AcpClientPlanUpdate {
+  type: "acp_plan_update";
+  entries: AcpPlanEntry[];
+}
+
+export interface AcpClientUsageUpdate {
+  type: "acp_usage_update";
+  used: number;
+  size: number;
+  cost?: { amount: number; currency: string } | null;
+}
+
+export interface AcpClientModesState {
+  type: "acp_modes_state";
+  currentModeId: string;
+  availableModes: AcpSessionMode[];
+}
+
+export interface AcpClientCurrentModeUpdate {
+  type: "acp_current_mode_update";
+  modeId: string;
+}
+
+export interface AcpClientConfigOptionUpdate {
+  type: "acp_config_option_update";
+  configOptions: AcpConfigOption[];
 }
 
 export interface AcpClientRunCompleted {

@@ -48,6 +48,7 @@ let chatPanelMountCount = 0;
 // environment offer/resolution hooks the App passes down.
 type ChatPanelTestProps = {
   agentBackend: string;
+  showAcpSettings?: boolean;
   replayEvents?: unknown[];
   onEnvironmentOfferAvailable?: (payload: { environmentId: string; sourceName?: string }) => void;
   onEnvironmentOfferResolved?: (payload: { environmentId: string; decision: string }) => void;

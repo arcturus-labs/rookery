@@ -38,6 +38,7 @@ export function App() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [environmentOffer, setEnvironmentOffer] = useState<EnvironmentOfferAvailablePayload | null>(null);
   const [acceptedEnvironmentSummaries, setAcceptedEnvironmentSummaries] = useState<{ source: string; skillNames: string[] }[]>([]);
+  const [showChatSettings, setShowChatSettings] = useState(false);
   const initialResumeAttemptedRef = useRef(false);
   const chatViewKeyRef = useRef(0);
 
@@ -58,6 +59,7 @@ export function App() {
         restartExisting: options.restartExisting,
       }).start();
       chatViewKeyRef.current += 1;
+      setShowChatSettings(false);
       setScreen({
         type: "chat",
         agentId: backend,
@@ -172,12 +174,25 @@ export function App() {
             {screen.type !== "chat" && <p>Select an agent to begin.</p>}
           </div>
           <div className="cwa-header__actions">
+            {screen.type === "chat" && (
+              <button
+                type="button"
+                className="cwa-header__gear-action"
+                aria-label={showChatSettings ? "Hide settings" : "Show settings"}
+                onClick={() => setShowChatSettings((value) => !value)}
+              >
+                ⚙︎
+              </button>
+            )}
             <span className="cwa-header__status">{headerLabel}</span>
             {screen.type === "chat" && (
               <button
                 type="button"
                 className="cwa-header__agent-action"
-                onClick={() => setScreen({ type: "agent-selection" })}
+                onClick={() => {
+                  setShowChatSettings(false);
+                  setScreen({ type: "agent-selection" });
+                }}
               >
                 Sessions
               </button>
@@ -190,6 +205,7 @@ export function App() {
             key={screen.viewKey}
             agentId={screen.agentId}
             session={screen.session}
+            showAcpSettings={showChatSettings}
             onParentMessage={postParentMessage}
             onEnvironmentOfferAvailable={handleEnvironmentOfferAvailable}
             onEnvironmentOfferResolved={handleEnvironmentOfferResolved}

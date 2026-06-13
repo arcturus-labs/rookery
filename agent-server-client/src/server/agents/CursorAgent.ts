@@ -41,11 +41,14 @@ export class CursorAgent extends BaseAgent {
   protected override async registerSession(): Promise<AgentSessionRecord> {
     const record = await super.registerSession();
     if (this.cursorModel && this.sessionIdValue) {
-      await this.sendRequestWithTimeout(
+      const result = await this.sendRequestWithTimeout(
         "session/set_config_option",
         { sessionId: this.sessionIdValue, configId: "model", value: this.cursorModel },
         this.options.startupTimeoutMs ?? 15_000,
-      );
+      ) as { configOptions?: unknown };
+      if (Array.isArray(result?.configOptions)) {
+        this.emitConfigOptions(result.configOptions as never);
+      }
     }
     return record;
   }

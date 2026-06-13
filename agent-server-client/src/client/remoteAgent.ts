@@ -1,6 +1,16 @@
 import { AgentBackend, AgentDefinition, AgentSessionSummary } from "./agent";
 import type { AcpClientEvent } from "./acpClientTypes";
-import type { AcpPromptResponse, AcpSessionUpdate, JsonRpcMessage } from "../shared/acp";
+import type {
+  AcpConfigOption,
+  AcpPermissionRequest,
+  AcpPromptResponse,
+  AcpSessionModeState,
+  AcpSessionUpdate,
+  JsonRpcFailure,
+  JsonRpcMessage,
+  JsonRpcRequest,
+  JsonRpcSuccess,
+} from "../shared/acp";
 import { isJsonRpcFailure, isJsonRpcNotification, isJsonRpcSuccess } from "../shared/acp";
 
 export type RemoteSessionEvent = AcpClientEvent;
@@ -71,6 +81,7 @@ interface RemoteAgentStartPayload {
 }
 
 type PendingRun = { requestId: string; promptText: string; resolve: () => void; reject: (error: Error) => void };
+type PendingRequest = { resolve: (result: unknown) => void; reject: (error: Error) => void };
 
 function websocketUrl(endpoint: string, sessionId: string): string {
   const base = endpoint.includes("://")
@@ -98,6 +109,28 @@ function textFromContentItems(content: unknown): string {
     .join("\n");
 }
 
+function parseModesState(update: AcpSessionUpdate): AcpSessionModeState | null {
+  if (update.sessionUpdate !== "_rookery_modes_state") return null;
+  const modes = (update as { modes?: unknown }).modes;
+  if (!modes || typeof modes !== "object") return null;
+  const currentModeId = (modes as { currentModeId?: unknown }).currentModeId;
+  const availableModes = (modes as { availableModes?: unknown }).availableModes;
+  if (typeof currentModeId !== "string" || !Array.isArray(availableModes)) return null;
+  return {
+    currentModeId,
+    availableModes: availableModes.filter((mode): mode is AcpSessionModeState["availableModes"][number] => (
+      typeof mode === "object"
+      && mode !== null
+      && typeof (mode as { id?: unknown }).id === "string"
+      && typeof (mode as { name?: unknown }).name === "string"
+    )).map((mode) => ({
+      id: mode.id,
+      name: mode.name,
+      ...(typeof mode.description === "string" ? { description: mode.description } : {}),
+    })),
+  };
+}
+
 export class RemoteAgent {
   private startEndpoint: string;
   private wsEndpoint: string;
@@ -110,6 +143,7 @@ export class RemoteAgent {
   private socket: WebSocket | null = null;
   private connectPromise: Promise<void> | null = null;
   private pendingRuns: PendingRun[] = [];
+  private pendingRequests = new Map<string, PendingRequest>();
   private requestCounter = 0;
   private closed = false;
 
@@ -192,6 +226,8 @@ export class RemoteAgent {
         if (!this.closed) {
           const error = new Error("Remote agent websocket closed.");
           while (this.pendingRuns.length > 0) this.pendingRuns.shift()?.reject(error);
+          for (const pending of this.pendingRequests.values()) pending.reject(error);
+          this.pendingRequests.clear();
           this.onAcpEvent?.({ type: "acp_connection_error", error: error.message });
         }
       }, { once: true });
@@ -234,6 +270,49 @@ export class RemoteAgent {
     }));
 
     return run;
+  }
+
+  async setMode(modeId: string): Promise<void> {
+    const result = await this.sendSocketRequest("session/set_mode", { sessionId: this.session?.id, modeId });
+    const modes = result && typeof result === "object" ? (result as { modes?: unknown }).modes : undefined;
+    if (modes && typeof modes === "object") {
+      const parsed = parseModesState({ sessionUpdate: "_rookery_modes_state", modes } as AcpSessionUpdate);
+      if (parsed) {
+        this.onAcpEvent?.({ type: "acp_modes_state", currentModeId: parsed.currentModeId, availableModes: parsed.availableModes });
+        return;
+      }
+    }
+    this.onAcpEvent?.({ type: "acp_current_mode_update", modeId });
+  }
+
+  async setConfigOption(configId: string, value: string): Promise<void> {
+    const result = await this.sendSocketRequest("session/set_config_option", { sessionId: this.session?.id, configId, value }) as { configOptions?: unknown };
+    if (Array.isArray(result?.configOptions)) {
+      this.onAcpEvent?.({ type: "acp_config_option_update", configOptions: result.configOptions as AcpConfigOption[] });
+    }
+  }
+
+  async respondToPermissionRequest(requestId: string, outcome: { outcome: "selected"; optionId: string } | { outcome: "cancelled" }): Promise<void> {
+    await this.connect();
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error("Remote agent websocket is not open.");
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: requestId,
+      result: { outcome },
+    }));
+  }
+
+  private async sendSocketRequest(method: string, params: Record<string, unknown>): Promise<unknown> {
+    await this.connect();
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error("Remote agent websocket is not open.");
+    const requestId = `rpc-${++this.requestCounter}`;
+    const pending = new Promise<unknown>((resolve, reject) => {
+      this.pendingRequests.set(requestId, { resolve, reject });
+    });
+    socket.send(JSON.stringify({ jsonrpc: "2.0", id: requestId, method, params } satisfies JsonRpcRequest));
+    return await pending;
   }
 
   private resolvePendingRun(requestId: string): void {
@@ -322,11 +401,37 @@ export class RemoteAgent {
         });
         break;
       }
+      case "plan": {
+        const plan = update as { entries: import("../shared/acp").AcpPlanEntry[] };
+        this.onAcpEvent?.({ type: "acp_plan_update", entries: plan.entries });
+        break;
+      }
+      case "usage_update": {
+        const usage = update as { used: number; size: number; cost?: { amount: number; currency: string } | null };
+        this.onAcpEvent?.({ type: "acp_usage_update", used: usage.used, size: usage.size, ...(usage.cost !== undefined ? { cost: usage.cost } : {}) });
+        break;
+      }
+      case "current_mode_update": {
+        const currentMode = update as { modeId: string };
+        this.onAcpEvent?.({ type: "acp_current_mode_update", modeId: currentMode.modeId });
+        break;
+      }
+      case "config_option_update": {
+        const config = update as { configOptions: AcpConfigOption[] };
+        this.onAcpEvent?.({ type: "acp_config_option_update", configOptions: config.configOptions });
+        break;
+      }
+      case "_rookery_modes_state": {
+        const parsed = parseModesState(update);
+        if (parsed) {
+          this.onAcpEvent?.({ type: "acp_modes_state", currentModeId: parsed.currentModeId, availableModes: parsed.availableModes });
+        }
+        break;
+      }
       case "_rookery_tool_input_delta":
       case "_rookery_tool_call_ready":
       case "_rookery_tool_output_delta": {
-        // Legacy custom updates — translate to tool_call_update style events
-        const legacy = update as { toolCallId?: unknown; toolName?: unknown; delta?: unknown; status?: unknown };
+        const legacy = update as { toolCallId?: unknown; toolName?: unknown; delta?: unknown };
         const toolCallId = String(legacy.toolCallId ?? "");
         const toolName = typeof legacy.toolName === "string" ? legacy.toolName : undefined;
         if (sessionUpdate === "_rookery_tool_input_delta") {
@@ -346,7 +451,6 @@ export class RemoteAgent {
             output: String(legacy.delta ?? ""),
           });
         }
-        // _rookery_tool_call_ready is handled as a silent status transition on the server side
         break;
       }
       case "_rookery_environment_event": {
@@ -360,22 +464,41 @@ export class RemoteAgent {
         }
         break;
       }
-      case "_rookery_run_completed":
+      case "_rookery_status_changed": {
+        const status = typeof update.status === "string" ? update.status : "busy";
+        this.onAcpEvent?.({ type: "acp_status_changed", status: status as never, ...(typeof update.message === "string" ? { message: update.message } : {}) });
+        break;
+      }
       case "_rookery_run_failed":
-      case "_rookery_status_changed":
+        this.onAcpEvent?.({ type: "acp_run_failed", error: String(update.error ?? "Run failed") });
+        break;
+      case "_rookery_connection_error":
+        this.onAcpEvent?.({ type: "acp_connection_error", error: String(update.error ?? "Connection error") });
+        break;
+      case "_rookery_run_completed":
       case "_rookery_assistant_message_started":
       case "_rookery_assistant_message_completed":
       case "_rookery_assistant_message_error":
       case "_rookery_protocol_error":
-      case "_rookery_connection_error":
-        // Handled by the server-side translation layer; not emitted to client in new path
-        break;
       default:
         break;
     }
   }
 
   private handleMessage(message: JsonRpcMessage): void {
+    if ("method" in message && "id" in message && message.method === "session/request_permission") {
+      const permissionRequest = message as AcpPermissionRequest;
+      const params = permissionRequest.params;
+      if (!params) return;
+      this.onAcpEvent?.({
+        type: "acp_permission_request",
+        requestId: String(permissionRequest.id),
+        toolCall: params.toolCall,
+        options: params.options,
+      });
+      return;
+    }
+
     if (isJsonRpcNotification(message)) {
       const params = message.params as { update?: AcpSessionUpdate } | undefined;
       if (message.method === "session/update" && params?.update) {
@@ -385,12 +508,26 @@ export class RemoteAgent {
     }
 
     if (isJsonRpcFailure(message)) {
+      const requestId = message.id === null ? undefined : String(message.id);
+      const pending = requestId ? this.pendingRequests.get(requestId) : undefined;
+      if (pending) {
+        this.pendingRequests.delete(requestId!);
+        pending.reject(new Error(message.error.message));
+        return;
+      }
       this.onAcpEvent?.({ type: "acp_connection_error", error: message.error.message });
-      this.rejectPendingRun(message.error.message, message.id === null ? undefined : String(message.id));
+      this.rejectPendingRun(message.error.message, requestId);
       return;
     }
 
     if (isJsonRpcSuccess(message)) {
+      const requestId = String(message.id);
+      const pending = this.pendingRequests.get(requestId);
+      if (pending) {
+        this.pendingRequests.delete(requestId);
+        pending.resolve(message.result);
+        return;
+      }
       this.handlePromptResponse(message as AcpPromptResponse);
     }
   }

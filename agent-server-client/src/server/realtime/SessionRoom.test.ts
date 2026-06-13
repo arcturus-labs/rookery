@@ -3,7 +3,7 @@ import { BaseAgent } from "../agents/BaseAgent.js";
 import type { AgentSessionRecord } from "../agents/sessionLog.js";
 import { SessionRoom } from "./SessionRoom.js";
 import { ENVIRONMENT_OFFER_AVAILABLE_KIND } from "../../shared/environment.js";
-import type { AcpUpdateMessage } from "../../shared/realtime.js";
+import type { AcpOutboundMessage } from "../../shared/realtime.js";
 
 class TestAgent extends BaseAgent {
   constructor() {
@@ -52,7 +52,7 @@ describe("SessionRoom", () => {
     const room = createRoom(new TestAgent());
     room.onEnvironmentOffered("web:wikipedia", { sourceName: "Wikipedia" });
 
-    const seen: AcpUpdateMessage[] = [];
+    const seen: AcpOutboundMessage[] = [];
     const unsubscribe = room.subscribe((event) => {
       seen.push(event);
     });
@@ -60,8 +60,8 @@ describe("SessionRoom", () => {
 
     expect(seen).toEqual([
       {
-        type: "acp_update",
-        notification: expect.objectContaining({
+        type: "acp_message",
+        message: expect.objectContaining({
           method: "session/update",
           params: expect.objectContaining({
             update: expect.objectContaining({
@@ -80,7 +80,7 @@ describe("SessionRoom", () => {
     room.onEnvironmentOffered("web:wikipedia", { sourceName: "Wikipedia" });
     room.onEnvironmentResolved("web:wikipedia", "approved");
 
-    const seen: AcpUpdateMessage[] = [];
+    const seen: AcpOutboundMessage[] = [];
     const unsubscribe = room.subscribe((event) => {
       seen.push(event);
     });
@@ -97,7 +97,7 @@ describe("SessionRoom", () => {
     }
 
     const room = createRoom(new RejectingAgent());
-    const seen: AcpUpdateMessage[] = [];
+    const seen: AcpOutboundMessage[] = [];
     const unsubscribe = room.subscribe((event) => {
       seen.push(event);
     });
@@ -107,8 +107,8 @@ describe("SessionRoom", () => {
 
     expect(seen).toEqual([
       {
-        type: "acp_update",
-        notification: expect.objectContaining({
+        type: "acp_message",
+        message: expect.objectContaining({
           method: "session/update",
           params: expect.objectContaining({
             sessionId: "s1",

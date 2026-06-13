@@ -32,13 +32,27 @@
 .cwa-status-line {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 7px 10px;
   border-top: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   background: rgba(17, 13, 24, 0.45);
   font-size: 0.82em;
   flex-shrink: 0;
+}
+
+.cwa-status-line__primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cwa-status-line__usage {
+  color: var(--text-muted);
+  font-size: 0.95em;
+  white-space: nowrap;
 }
 
 .cwa-status-line__dot {

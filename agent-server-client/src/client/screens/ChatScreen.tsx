@@ -6,6 +6,7 @@ import { ChatPanel } from "../components/ChatPanel";
 export interface ChatScreenProps {
   agentId: AgentBackend;
   session: AgentSessionSummary;
+  showAcpSettings?: boolean;
   onParentMessage?: ParentMessagePoster | null;
   onEnvironmentOfferAvailable?: (payload: EnvironmentOfferAvailablePayload) => void;
   onEnvironmentOfferResolved?: (payload: EnvironmentOfferResolvedPayload) => void;
@@ -14,6 +15,7 @@ export interface ChatScreenProps {
 export function ChatScreen({
   agentId,
   session,
+  showAcpSettings = false,
   onParentMessage,
   onEnvironmentOfferAvailable,
   onEnvironmentOfferResolved,
@@ -22,6 +24,7 @@ export function ChatScreen({
     <ChatPanel
       agentBackend={agentId}
       initialSession={session}
+      showAcpSettings={showAcpSettings}
       onParentMessage={onParentMessage}
       onEnvironmentOfferAvailable={onEnvironmentOfferAvailable}
       onEnvironmentOfferResolved={onEnvironmentOfferResolved}

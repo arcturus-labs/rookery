@@ -1,30 +1,39 @@
 # Moving to Agent Client Protocol — Engineering Checklist
 
-## Current checkpoint — Phase 4 complete
+## Current checkpoint — Phase 5 first pass complete
 
-Server-internal `SessionEvent` double-translation has been removed. Every event now
-flows through ACP directly from subprocess to WebSocket:
+ACP-native UI/UX is now in place end-to-end:
 
-- `BaseAgent` emits only via `emitAcpUpdate()` → `acpEventSink` → `RoomEventStream.publishAcpUpdate()`
-- `SessionRoom` no longer touches `SessionEvent` at all
-- `websocketRoute` only handles `acp_update` messages
-- Deleted: `sessionEventToAcp.ts`, `acpToSessionEvent.ts`, `SessionEvent` union,
-  `SessionEventMessage` type, `RoomEventStream.publish()`/`broadcast()`
+- browser smoke test complete
+- permission prompts handled via `session/request_permission`
+- plan updates rendered in the chat UI
+- usage/cost/context window state displayed
+- mode + config option controls wired through ACP requests
+- stop reasons surfaced in the UI
 
 ## Immediate next to-dos
 
-1. ~~Browser-check the post-replay-cleanup state~~ (code paths verified; need browser smoke test)
+1. ~~Browser-check the post-replay-cleanup state~~ (browser smoke test complete)
 2. ~~Do the ACP-only cleanup sweep~~ (zero legacy Pi-RPC / compatibility paths found)
 3. ~~Finish the non-native ACP adapter pass~~ (CursorAgent + CursorAutoAgent done)
 4. ~~Resume the internal migration checklist — UI/client-state cleanup~~ (Phase 3 client refactor complete)
 5. ~~Phase 4: remove server-internal SessionEvent double-translation~~ (complete)
-6. **Phase 5: richer ACP-native UI/UX** (conversation first)
+6. ~~Phase 5: richer ACP-native UI/UX~~ (first pass complete)
    - permission prompts from `session/request_permission`
    - plans, usage/cost/context window display
    - mode/config controls
    - stop-reason handling
 
 ## Recently completed
+
+- **Phase 5 — ACP-native UI/UX first pass**
+  - Added browser handling for ACP `session/request_permission`
+  - Added websocket/server bridge support for `session/request_permission`, `session/set_mode`, and `session/set_config_option`
+  - `RemoteAgent` now handles plan, usage, mode, and config ACP updates directly
+  - `ChatPanel` now renders permission prompts, plan state, usage/cost/context state, mode/config controls, and last stop reason
+  - Added replayable ACP state for plan/usage/mode/config in `RoomEventStream`
+  - Added tests for permission flow, mode/config controls, and ACP-native UI state
+  - Browser smoke test complete; all 98 tests pass, TypeScript clean
 
 - **Phase 4 — Server-internal SessionEvent removal**
   - Removed `SessionEvent` union, `SessionEventMessage`, `session_event` envelope

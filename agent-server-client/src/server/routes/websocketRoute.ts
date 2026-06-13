@@ -1,5 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import type { AcpPromptRequest, JsonRpcFailure, JsonRpcMessage, JsonRpcSuccess } from "../../shared/acp.js";
+import type {
+  AcpPromptRequest,
+  AcpSetConfigOptionRequest,
+  AcpSetModeRequest,
+  JsonRpcFailure,
+  JsonRpcMessage,
+  JsonRpcSuccess,
+} from "../../shared/acp.js";
 import type { SessionRoomManager } from "../realtime/SessionRoomManager.js";
 import { errorMessage } from "../serverHelpers.js";
 
@@ -23,8 +30,28 @@ function isPromptRequest(message: JsonRpcMessage): message is AcpPromptRequest {
   return "id" in message && "method" in message && message.method === "session/prompt";
 }
 
+function isSetModeRequest(message: JsonRpcMessage): message is AcpSetModeRequest {
+  return "id" in message && "method" in message && message.method === "session/set_mode";
+}
+
+function isSetConfigOptionRequest(message: JsonRpcMessage): message is AcpSetConfigOptionRequest {
+  return "id" in message && "method" in message && message.method === "session/set_config_option";
+}
+
 function isCancelMessage(message: JsonRpcMessage): boolean {
   return "method" in message && message.method === "session/cancel";
+}
+
+function isJsonRpcSuccessMessage(message: JsonRpcMessage): message is JsonRpcSuccess {
+  return "id" in message && "result" in message;
+}
+
+function isJsonRpcFailureMessage(message: JsonRpcMessage): message is JsonRpcFailure {
+  return "error" in message;
+}
+
+function requestSessionId(message: AcpPromptRequest | AcpSetModeRequest | AcpSetConfigOptionRequest): string | undefined {
+  return typeof message.params?.sessionId === "string" ? message.params.sessionId : undefined;
 }
 
 export async function registerWebsocketRoute(app: FastifyInstance, roomManager: SessionRoomManager): Promise<void> {
@@ -50,11 +77,10 @@ export async function registerWebsocketRoute(app: FastifyInstance, roomManager: 
 
     let unsubscribe: () => void = () => {};
     let closed = false;
-    const onRoomEvent = (event: { type: string;[key: string]: unknown }) => {
+    const onRoomEvent = (event: { type: string; [key: string]: unknown }) => {
       try {
-        if (event.type === "acp_update") {
-          send(event.notification);
-          return;
+        if (event.type === "acp_message") {
+          send(event.message);
         }
       } catch {
         unsubscribe();
@@ -82,11 +108,55 @@ export async function registerWebsocketRoute(app: FastifyInstance, roomManager: 
         return;
       }
 
+      if (isJsonRpcSuccessMessage(message) || isJsonRpcFailureMessage(message)) {
+        room.respondToPermissionRequest(message);
+        return;
+      }
+
       if (isCancelMessage(message)) {
-        // Cancel the in-flight turn; the pending prompt resolves with a
-        // "cancelled" error, keeping the session alive. No response (it's a
-        // JSON-RPC notification).
         void room.cancel().catch(() => {});
+        return;
+      }
+
+      if (isSetModeRequest(message)) {
+        if (requestSessionId(message) !== sessionId) {
+          send(jsonRpcError("sessionId does not match websocket session", message.id));
+          return;
+        }
+        if (typeof message.params?.modeId !== "string" || message.params.modeId.trim().length === 0) {
+          send(jsonRpcError("Missing modeId", message.id));
+          return;
+        }
+        void room.setMode(message.params.modeId)
+          .then((result) => {
+            send(jsonRpcSuccess(message.id, typeof result === "object" && result !== null ? result as Record<string, unknown> : {}));
+          })
+          .catch((error) => {
+            send(jsonRpcError(errorMessage(error), message.id));
+          });
+        return;
+      }
+
+      if (isSetConfigOptionRequest(message)) {
+        if (requestSessionId(message) !== sessionId) {
+          send(jsonRpcError("sessionId does not match websocket session", message.id));
+          return;
+        }
+        if (typeof message.params?.configId !== "string" || message.params.configId.trim().length === 0) {
+          send(jsonRpcError("Missing configId", message.id));
+          return;
+        }
+        if (typeof message.params?.value !== "string") {
+          send(jsonRpcError("Missing config option value", message.id));
+          return;
+        }
+        void room.setConfigOption(message.params.configId, message.params.value)
+          .then((result) => {
+            send(jsonRpcSuccess(message.id, typeof result === "object" && result !== null ? result as Record<string, unknown> : {}));
+          })
+          .catch((error) => {
+            send(jsonRpcError(errorMessage(error), message.id));
+          });
         return;
       }
 

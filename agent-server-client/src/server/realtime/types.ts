@@ -1,1 +1,1 @@
-export type { EnvironmentEventPayload, AcpUpdateMessage } from "../../shared/realtime.js";
+export type { EnvironmentEventPayload, AcpOutboundMessage } from "../../shared/realtime.js";

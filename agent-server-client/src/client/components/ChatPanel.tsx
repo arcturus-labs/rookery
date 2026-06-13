@@ -7,6 +7,7 @@ import {
 } from "../agent";
 import { RemoteAgent, type RemoteSessionEvent } from "../remoteAgent";
 import type { AcpClientEvent } from "../acpClientTypes";
+import type { AcpConfigOption, AcpPermissionOption, AcpPermissionToolCall, AcpPlanEntry, AcpSessionMode } from "../../shared/acp";
 import {
   ENVIRONMENT_OFFER_AVAILABLE_KIND,
   ENVIRONMENT_OFFER_RESOLVED_KIND,
@@ -19,18 +20,30 @@ import { BlockModal } from "./BlockModal";
 import {
   createParentMessageToolState,
   maybePostParentMessageToolCall,
-  recordParentMessageToolInputDelta,
   recordParentMessageToolStart,
   type ParentMessagePoster,
 } from "../parentMessageTool";
 
 type StatusState = { status: AgentRunStatus | "queued"; message: string };
 type QueuedMessage = { id: string; text: string };
+type PermissionRequestState = {
+  requestId: string;
+  toolCall: AcpPermissionToolCall;
+  options: AcpPermissionOption[];
+};
+type UsageState = { used: number; size: number; cost?: { amount: number; currency: string } | null };
+type ModesState = { currentModeId: string; availableModes: AcpSessionMode[] };
 type State = {
   blocks: Block[];
   isAgentProcessing: boolean;
   status: StatusState;
   queuedMessages: QueuedMessage[];
+  pendingPermission: PermissionRequestState | null;
+  planEntries: AcpPlanEntry[];
+  usage: UsageState | null;
+  modes: ModesState | null;
+  configOptions: AcpConfigOption[];
+  lastStopReason: string | null;
 };
 
 type Action =
@@ -46,7 +59,14 @@ type Action =
   | { type: "TOOL_OUTPUT_DELTA"; toolCallId: string; toolName?: string; delta: string }
   | { type: "TOOL_COMPLETED"; toolCallId: string; toolName: string; output: string }
   | { type: "TOOL_ERROR"; toolCallId: string; toolName: string; error: string }
-  | { type: "RUN_COMPLETED" }
+  | { type: "PERMISSION_REQUESTED"; requestId: string; toolCall: AcpPermissionToolCall; options: AcpPermissionOption[] }
+  | { type: "PERMISSION_CLEARED" }
+  | { type: "PLAN_UPDATED"; entries: AcpPlanEntry[] }
+  | { type: "USAGE_UPDATED"; usage: UsageState }
+  | { type: "MODES_UPDATED"; modes: ModesState }
+  | { type: "CURRENT_MODE_UPDATED"; modeId: string }
+  | { type: "CONFIG_OPTIONS_UPDATED"; configOptions: AcpConfigOption[] }
+  | { type: "RUN_COMPLETED"; stopReason: string }
   | { type: "RUN_FAILED"; error: string; source?: "run" | "connection" | "protocol" };
 
 function finalizeStreamingBlocks(blocks: Block[]): Block[] {
@@ -202,10 +222,54 @@ function reducer(state: State, action: Action): State {
         })),
       };
 
+    case "PERMISSION_REQUESTED":
+      return {
+        ...state,
+        pendingPermission: { requestId: action.requestId, toolCall: action.toolCall, options: action.options },
+      };
+
+    case "PERMISSION_CLEARED":
+      return {
+        ...state,
+        pendingPermission: null,
+      };
+
+    case "PLAN_UPDATED":
+      return {
+        ...state,
+        planEntries: action.entries,
+      };
+
+    case "USAGE_UPDATED":
+      return {
+        ...state,
+        usage: action.usage,
+      };
+
+    case "MODES_UPDATED":
+      return {
+        ...state,
+        modes: action.modes,
+      };
+
+    case "CURRENT_MODE_UPDATED":
+      return {
+        ...state,
+        modes: state.modes ? { ...state.modes, currentModeId: action.modeId } : state.modes,
+      };
+
+    case "CONFIG_OPTIONS_UPDATED":
+      return {
+        ...state,
+        configOptions: action.configOptions,
+      };
+
     case "RUN_COMPLETED":
       return {
         ...state,
         isAgentProcessing: false,
+        pendingPermission: null,
+        lastStopReason: action.stopReason,
         status: state.queuedMessages.length > 0
           ? { status: "queued", message: `${state.queuedMessages.length} queued message${state.queuedMessages.length === 1 ? "" : "s"}` }
           : { status: "idle", message: "Ready" },
@@ -216,6 +280,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         isAgentProcessing: false,
+        pendingPermission: null,
         status: { status: "error", message: action.error },
         blocks: [
           ...finalizeStreamingBlocks(state.blocks),
@@ -231,6 +296,7 @@ function reducer(state: State, action: Action): State {
 interface ChatPanelProps {
   agentBackend: AgentBackend;
   initialSession: AgentSessionSummary | null;
+  showAcpSettings?: boolean;
   disabled?: boolean;
   onParentMessage?: ParentMessagePoster | null;
   onEnvironmentOfferAvailable?: (payload: EnvironmentOfferAvailablePayload) => void;
@@ -238,9 +304,27 @@ interface ChatPanelProps {
   replayEvents?: RemoteSessionEvent[];
 }
 
+function formatUsage(usage: UsageState | null): string | null {
+  if (!usage) return null;
+  const pct = usage.size > 0 ? Math.round((usage.used / usage.size) * 100) : 0;
+  const base = `${usage.used.toLocaleString()} / ${usage.size.toLocaleString()} tokens (${pct}%)`;
+  if (!usage.cost) return base;
+  return `${base} · ${usage.cost.amount.toFixed(3)} ${usage.cost.currency}`;
+}
+
+function displayConfigOptions(configOptions: AcpConfigOption[], hasModes: boolean): AcpConfigOption[] {
+  return configOptions.filter((option) => !(hasModes && option.category === "mode"));
+}
+
+function optionLabel(option: AcpConfigOption, value: AcpConfigOption["options"][number]): string {
+  if (option.category === "model" && value.description) return `${value.name} — ${value.description}`;
+  return value.name;
+}
+
 export function ChatPanel({
   agentBackend,
   initialSession,
+  showAcpSettings = false,
   disabled = false,
   onParentMessage = null,
   onEnvironmentOfferAvailable,
@@ -252,6 +336,12 @@ export function ChatPanel({
     isAgentProcessing: false,
     status: { status: "idle", message: "Ready" },
     queuedMessages: [],
+    pendingPermission: null,
+    planEntries: [],
+    usage: null,
+    modes: null,
+    configOptions: [],
+    lastStopReason: null,
   });
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
   const agentRef = useRef<RemoteAgent | null>(null);
@@ -261,8 +351,8 @@ export function ChatPanel({
   const parentMessageToolStateRef = useRef(createParentMessageToolState());
   const replayAppliedRef = useRef(false);
 
-  const handleRunCompletion = () => {
-    dispatch({ type: "RUN_COMPLETED" });
+  const handleRunCompletion = (stopReason: string) => {
+    dispatch({ type: "RUN_COMPLETED", stopReason });
     const nextMessage = queueRef.current.shift();
     if (nextMessage) {
       dispatch({ type: "USER_MESSAGE_DEQUEUED", id: nextMessage.id });
@@ -281,7 +371,6 @@ export function ChatPanel({
         dispatch({ type: "USER_MESSAGE", text: event.text, messageId: event.messageId });
         break;
       case "acp_user_message_chunk":
-        // User message chunks are the server replaying queued messages; skip duplicates
         break;
       case "acp_agent_message_chunk":
         dispatch({ type: "AGENT_MESSAGE_CHUNK", text: event.text });
@@ -309,7 +398,6 @@ export function ChatPanel({
         switch (tc.status) {
           case "in_progress": {
             if (tc.output !== undefined) {
-              // Tool output delta
               dispatch({
                 type: "TOOL_OUTPUT_DELTA",
                 toolCallId: tc.toolCallId,
@@ -322,7 +410,6 @@ export function ChatPanel({
             break;
           }
           case "completed": {
-            // Trigger parent message relay for message_parent tool calls
             maybePostParentMessageToolCall(
               parentMessageToolStateRef.current,
               { toolCallId: tc.toolCallId, toolName: tc.toolName },
@@ -348,8 +435,26 @@ export function ChatPanel({
         }
         break;
       }
+      case "acp_permission_request":
+        dispatch({ type: "PERMISSION_REQUESTED", requestId: event.requestId, toolCall: event.toolCall, options: event.options });
+        break;
+      case "acp_plan_update":
+        dispatch({ type: "PLAN_UPDATED", entries: event.entries });
+        break;
+      case "acp_usage_update":
+        dispatch({ type: "USAGE_UPDATED", usage: { used: event.used, size: event.size, ...(event.cost !== undefined ? { cost: event.cost } : {}) } });
+        break;
+      case "acp_modes_state":
+        dispatch({ type: "MODES_UPDATED", modes: { currentModeId: event.currentModeId, availableModes: event.availableModes } });
+        break;
+      case "acp_current_mode_update":
+        dispatch({ type: "CURRENT_MODE_UPDATED", modeId: event.modeId });
+        break;
+      case "acp_config_option_update":
+        dispatch({ type: "CONFIG_OPTIONS_UPDATED", configOptions: event.configOptions });
+        break;
       case "acp_run_completed":
-        handleRunCompletion();
+        handleRunCompletion(event.stopReason);
         break;
       case "acp_run_failed":
         isAgentProcessingRef.current = false;
@@ -447,8 +552,71 @@ export function ChatPanel({
     startAgentRun(text);
   };
 
+  const handlePermissionDecision = (optionId?: string) => {
+    const activeAgent = agentRef.current;
+    const pendingPermission = state.pendingPermission;
+    if (!activeAgent || !pendingPermission) return;
+    dispatch({ type: "PERMISSION_CLEARED" });
+    void activeAgent.respondToPermissionRequest(
+      pendingPermission.requestId,
+      optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },
+    );
+  };
+
+  const handleModeChange = (modeId: string) => {
+    const activeAgent = agentRef.current;
+    if (!activeAgent) return;
+    void activeAgent.setMode(modeId);
+  };
+
+  const handleConfigOptionChange = (configId: string, value: string) => {
+    const activeAgent = agentRef.current;
+    if (!activeAgent) return;
+    void activeAgent.setConfigOption(configId, value);
+  };
+
+  const visibleConfigOptions = displayConfigOptions(state.configOptions, Boolean(state.modes));
+  const usageLabel = formatUsage(state.usage);
+
   return (
     <div className="cwa-panel">
+      {showAcpSettings && (state.modes || visibleConfigOptions.length > 0) && (
+        <div className="cwa-acp-bar">
+          {state.modes && state.modes.availableModes.length > 0 && (
+            <label className="cwa-acp-control">
+              <span>Mode</span>
+              <select aria-label="Mode" value={state.modes.currentModeId} onChange={(event) => handleModeChange(event.target.value)}>
+                {state.modes.availableModes.map((mode) => (
+                  <option key={mode.id} value={mode.id}>{mode.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {visibleConfigOptions.map((option) => (
+            <label key={option.id} className="cwa-acp-control">
+              <span>{option.name}</span>
+              <select aria-label={option.name} value={option.currentValue} onChange={(event) => handleConfigOptionChange(option.id, event.target.value)}>
+                {option.options.map((value) => (
+                  <option key={value.value} value={value.value}>{optionLabel(option, value)}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
+      {state.planEntries.length > 0 && (
+        <div className="cwa-plan" aria-label="Agent plan">
+          <div className="cwa-plan__label">Plan</div>
+          <ol className="cwa-plan__list">
+            {state.planEntries.map((entry, index) => (
+              <li key={`${entry.content}-${index}`} className={`cwa-plan__item cwa-plan__item--${entry.status}`}>
+                <span className="cwa-plan__content">{entry.content}</span>
+                <span className="cwa-plan__meta">{entry.priority} · {entry.status.replace("_", " ")}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       <MessageThread blocks={state.blocks} isStreaming={state.isAgentProcessing} onOpenBlock={setSelectedBlock} />
       {state.queuedMessages.length > 0 && (
         <div className="cwa-queue" aria-label="Queued messages">
@@ -460,9 +628,29 @@ export function ChatPanel({
           </ol>
         </div>
       )}
+      {state.pendingPermission && (
+        <div className="cwa-permission">
+          <div className="cwa-permission__header">Permission requested</div>
+          <div className="cwa-permission__title">{state.pendingPermission.toolCall.title}</div>
+          <div className="cwa-permission__kind">{state.pendingPermission.toolCall.kind}</div>
+          <div className="cwa-permission__actions">
+            {state.pendingPermission.options.map((option) => (
+              <button key={option.optionId} type="button" className="cwa-permission__button" onClick={() => handlePermissionDecision(option.optionId)}>
+                {option.name}
+              </button>
+            ))}
+            <button type="button" className="cwa-permission__button cwa-permission__button--secondary" onClick={() => handlePermissionDecision()}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       <div className={`cwa-status-line cwa-status-line--${state.status.status}`}>
-        <span className="cwa-status-line__dot" />
-        <span className="cwa-status-line__label">{state.status.message}</span>
+        <div className="cwa-status-line__primary">
+          <span className="cwa-status-line__dot" />
+          <span className="cwa-status-line__label">{state.status.message}</span>
+        </div>
+        {usageLabel && <span className="cwa-status-line__usage">{usageLabel}</span>}
       </div>
       <ComposeBox onSubmit={handleSubmit} isQueueing={state.isAgentProcessing} disabled={disabled} />
       <BlockModal block={selectedBlock} onClose={() => setSelectedBlock(null)} />

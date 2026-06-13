@@ -102,6 +102,17 @@ export interface AcpUsageUpdate {
   _meta?: JsonRpcMeta;
 }
 
+export interface AcpSessionMode {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface AcpSessionModeState {
+  currentModeId: string;
+  availableModes: AcpSessionMode[];
+}
+
 export interface AcpCurrentModeUpdate {
   sessionUpdate: "current_mode_update";
   modeId: string;
@@ -174,6 +185,12 @@ export interface AcpPromptResult {
   _meta?: JsonRpcMeta;
 }
 
+export interface AcpSessionNewResult {
+  sessionId: string;
+  modes?: AcpSessionModeState;
+  configOptions?: AcpConfigOption[];
+}
+
 export type AcpPromptResponse = JsonRpcSuccess<AcpPromptResult>;
 
 export interface AcpSessionCancelParams {
@@ -205,6 +222,27 @@ export interface AcpPermissionRequestParams {
 }
 
 export type AcpPermissionRequest = JsonRpcRequest<AcpPermissionRequestParams> & { method: "session/request_permission" };
+
+export interface AcpSetModeParams {
+  sessionId: string;
+  modeId: string;
+  _meta?: JsonRpcMeta;
+}
+
+export type AcpSetModeRequest = JsonRpcRequest<AcpSetModeParams> & { method: "session/set_mode" };
+
+export interface AcpSetConfigOptionParams {
+  sessionId: string;
+  configId: string;
+  value: string;
+  _meta?: JsonRpcMeta;
+}
+
+export type AcpSetConfigOptionRequest = JsonRpcRequest<AcpSetConfigOptionParams> & { method: "session/set_config_option" };
+
+export interface AcpSetConfigOptionResult {
+  configOptions: AcpConfigOption[];
+}
 
 export interface AcpPermissionResponseResult {
   outcome: {

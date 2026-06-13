@@ -9,6 +9,13 @@ const agentDiscoveryMock = vi.hoisted(() => ({
   createAgentMock: vi.fn(),
 }));
 
+const serverAgentMock = vi.hoisted(() => ({
+  lastPermissionSink: null as ((_request: unknown) => void) | null,
+  respondToPermissionRequestMock: vi.fn(),
+  setModeMock: vi.fn(async (modeId: string) => ({ modes: { currentModeId: modeId, availableModes: [{ id: "ask", name: "Ask" }, { id: modeId, name: modeId }] } })),
+  setConfigOptionMock: vi.fn(async (configId: string, value: string) => ({ configOptions: [{ id: configId, name: configId, type: "select", currentValue: value, options: [{ value, name: value }] }] })),
+}));
+
 vi.mock("./agents/agentDiscovery.js", () => ({
   getAgentDefinitions: () => [],
   isKnownAgent: (id: string) => id === "PiAgent" || id === "MyPiOpenAiAgent" || id === "PiAgent",
@@ -30,6 +37,9 @@ vi.mock("./agents/agentDiscovery.js", () => ({
       setAcpEventSink(nextSink: ((_notification: unknown) => void) | undefined) {
         acpEventSink = nextSink;
       },
+      setAcpPermissionRequestSink(nextSink: ((_request: unknown) => void) | undefined) {
+        serverAgentMock.lastPermissionSink = nextSink ?? null;
+      },
       async ensureStarted() {
         if (restart?.sessionId) {
           emitAcp({ sessionUpdate: "user_message_chunk", content: { type: "text", text: "earlier question" } });
@@ -46,6 +56,9 @@ vi.mock("./agents/agentDiscovery.js", () => ({
         emitAcp({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "ok" } });
         emitAcp({ sessionUpdate: "_rookery_run_completed" });
       },
+      setMode: serverAgentMock.setModeMock,
+      setConfigOption: serverAgentMock.setConfigOptionMock,
+      respondToPermissionRequest: serverAgentMock.respondToPermissionRequestMock,
     };
   }),
 }));
@@ -99,6 +112,10 @@ async function delay(ms: number): Promise<void> {
 describe("server", () => {
   afterEach(async () => {
     agentDiscoveryMock.createAgentMock.mockClear();
+    serverAgentMock.lastPermissionSink = null;
+    serverAgentMock.respondToPermissionRequestMock.mockClear();
+    serverAgentMock.setModeMock.mockClear();
+    serverAgentMock.setConfigOptionMock.mockClear();
     vi.restoreAllMocks();
   });
 
@@ -229,6 +246,105 @@ describe("server", () => {
       expect.objectContaining({ method: "session/update", params: expect.objectContaining({ update: expect.objectContaining({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "earlier answer" } }) }) }),
       expect.objectContaining({ method: "session/update", params: expect.objectContaining({ update: expect.objectContaining({ sessionUpdate: "_rookery_run_completed" }) }) }),
     ]);
+  });
+
+  it("handles session/set_mode over the websocket", async () => {
+    const app = await buildServer({ enableClient: false });
+    const baseUrl = await listen(app);
+    await app.inject({ method: "POST", url: "/api/agent/start", payload: { agent: "PiAgent" } });
+
+    const socket = await openWebSocket(`${baseUrl.replace("http", "ws")}/api/ws?sessionId=${mockSession.id}`);
+    const responsePromise = collectJsonMessages(socket, 1);
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: "mode-1",
+      method: "session/set_mode",
+      params: { sessionId: mockSession.id, modeId: "code" },
+    }));
+
+    const [response] = await responsePromise;
+    socket.close();
+    await app.close();
+
+    expect(serverAgentMock.setModeMock).toHaveBeenCalledWith("code");
+    expect(response).toEqual({
+      jsonrpc: "2.0",
+      id: "mode-1",
+      result: { modes: { currentModeId: "code", availableModes: [{ id: "ask", name: "Ask" }, { id: "code", name: "code" }] } },
+    });
+  });
+
+  it("handles session/set_config_option over the websocket", async () => {
+    const app = await buildServer({ enableClient: false });
+    const baseUrl = await listen(app);
+    await app.inject({ method: "POST", url: "/api/agent/start", payload: { agent: "PiAgent" } });
+
+    const socket = await openWebSocket(`${baseUrl.replace("http", "ws")}/api/ws?sessionId=${mockSession.id}`);
+    const responsePromise = collectJsonMessages(socket, 1);
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: "config-1",
+      method: "session/set_config_option",
+      params: { sessionId: mockSession.id, configId: "model", value: "smart" },
+    }));
+
+    const [response] = await responsePromise;
+    socket.close();
+    await app.close();
+
+    expect(serverAgentMock.setConfigOptionMock).toHaveBeenCalledWith("model", "smart");
+    expect(response).toEqual({
+      jsonrpc: "2.0",
+      id: "config-1",
+      result: { configOptions: [{ id: "model", name: "model", type: "select", currentValue: "smart", options: [{ value: "smart", name: "smart" }] }] },
+    });
+  });
+
+  it("forwards permission responses from websocket clients back to the agent", async () => {
+    const app = await buildServer({ enableClient: false });
+    const baseUrl = await listen(app);
+    await app.inject({ method: "POST", url: "/api/agent/start", payload: { agent: "PiAgent" } });
+
+    const socket = await openWebSocket(`${baseUrl.replace("http", "ws")}/api/ws?sessionId=${mockSession.id}`);
+    const requestPromise = collectJsonMessages(socket, 1);
+    serverAgentMock.lastPermissionSink?.({
+      jsonrpc: "2.0",
+      id: "perm-1",
+      method: "session/request_permission",
+      params: {
+        sessionId: mockSession.id,
+        toolCall: { toolCallId: "tool-1", title: "Write file", kind: "edit", status: "pending" },
+        options: [{ optionId: "allow-once", name: "Allow once", kind: "allow_once" }],
+      },
+    });
+
+    const [requestMessage] = await requestPromise;
+    expect(requestMessage).toEqual({
+      jsonrpc: "2.0",
+      id: "perm-1",
+      method: "session/request_permission",
+      params: {
+        sessionId: mockSession.id,
+        toolCall: { toolCallId: "tool-1", title: "Write file", kind: "edit", status: "pending" },
+        options: [{ optionId: "allow-once", name: "Allow once", kind: "allow_once" }],
+      },
+    });
+
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: "perm-1",
+      result: { outcome: { outcome: "selected", optionId: "allow-once" } },
+    }));
+    await delay(10);
+
+    socket.close();
+    await app.close();
+
+    expect(serverAgentMock.respondToPermissionRequestMock).toHaveBeenCalledWith({
+      jsonrpc: "2.0",
+      id: "perm-1",
+      result: { outcome: { outcome: "selected", optionId: "allow-once" } },
+    });
   });
 
   it("rejects unknown agents", async () => {

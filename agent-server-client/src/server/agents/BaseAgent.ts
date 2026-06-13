@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
-import type { AcpSessionUpdateNotification, JsonRpcFailure, JsonRpcId, JsonRpcMessage, JsonRpcRequest, JsonRpcSuccess } from "../../shared/acp.js";
+import type { AcpConfigOption, AcpPermissionRequest, AcpPermissionResponseResult, AcpSessionModeState, AcpSessionNewResult, AcpSessionUpdateNotification, JsonRpcFailure, JsonRpcId, JsonRpcMessage, JsonRpcRequest, JsonRpcSuccess } from "../../shared/acp.js";
 import { appendSessionRecord, createSessionRecord, type AgentRestartMetadata, type AgentSessionRecord } from "./sessionLog.js";
 
 type JsonObject = Record<string, unknown>;
@@ -51,6 +51,9 @@ export class BaseAgent {
   private activeRunReject?: (error: Error) => void;
   private sessionName = "default";
   private acpEventSink?: (notification: AcpSessionUpdateNotification) => void;
+  private acpPermissionRequestSink?: (request: AcpPermissionRequest) => void;
+  private bufferedAcpUpdates: AcpSessionUpdateNotification[] = [];
+  private pendingPermissionRequestIds = new Set<JsonRpcId>();
   private process: ChildProcessWithoutNullStreams | null = null;
   private startPromise: Promise<void> | null = null;
   private pendingRequests = new Map<JsonRpcId, PendingRequest>();
@@ -67,6 +70,12 @@ export class BaseAgent {
 
   setAcpEventSink(sink: ((notification: AcpSessionUpdateNotification) => void) | undefined): void {
     this.acpEventSink = sink;
+    if (!sink || this.bufferedAcpUpdates.length === 0) return;
+    for (const update of this.bufferedAcpUpdates.splice(0)) sink(update);
+  }
+
+  setAcpPermissionRequestSink(sink: ((request: AcpPermissionRequest) => void) | undefined): void {
+    this.acpPermissionRequestSink = sink;
   }
 
   setSessionName(name: string): void {
@@ -143,6 +152,23 @@ export class BaseAgent {
     }
   }
 
+  async setMode(modeId: string): Promise<unknown> {
+    if (!this.sessionIdValue) throw new Error("ACP agent session is not initialized.");
+    return await this.sendRequest("session/set_mode", { sessionId: this.sessionIdValue, modeId });
+  }
+
+  async setConfigOption(configId: string, value: string): Promise<unknown> {
+    if (!this.sessionIdValue) throw new Error("ACP agent session is not initialized.");
+    return await this.sendRequest("session/set_config_option", { sessionId: this.sessionIdValue, configId, value });
+  }
+
+  respondToPermissionRequest(message: JsonRpcSuccess | JsonRpcFailure): void {
+    const id = asJsonRpcId((message as { id?: unknown }).id);
+    if (id === undefined || !this.pendingPermissionRequestIds.has(id) || !this.process?.stdin.writable) return;
+    this.pendingPermissionRequestIds.delete(id);
+    this.process.stdin.write(`${JSON.stringify(message)}\n`);
+  }
+
   protected async start(): Promise<void> {
     await this.startProcess();
     await this.initialize();
@@ -158,7 +184,9 @@ export class BaseAgent {
     this.sessionIdValue = sessionId;
     this.isReplayingSessionLoad = true;
     try {
-      await this.sendRequestWithTimeout("session/load", this.buildSessionLoadParams(sessionId, cwd), this.options.startupTimeoutMs ?? 15_000);
+      const result = await this.sendRequestWithTimeout("session/load", this.buildSessionLoadParams(sessionId, cwd), this.options.startupTimeoutMs ?? 15_000);
+      this.emitInitialSessionState(result as AcpSessionNewResult);
+      await this.afterSessionStarted(result);
     } finally {
       this.isReplayingSessionLoad = false;
     }
@@ -171,6 +199,8 @@ export class BaseAgent {
     const sessionId = isObject(result) && typeof result.sessionId === "string" ? result.sessionId : undefined;
     if (!sessionId) throw new Error("ACP session/new did not return a sessionId.");
     this.sessionIdValue = sessionId;
+    this.emitInitialSessionState(result as AcpSessionNewResult);
+    await this.afterSessionStarted(result);
 
     return this.createSessionRecord({
       sessionId,
@@ -329,15 +359,28 @@ export class BaseAgent {
     if ("method" in message && message.method === "session/update") {
       if (this.shouldIgnoreServerMessage(message)) return;
 
-      // Forward raw ACP notification directly.
-      if (this.acpEventSink) {
-        const update = (message as AcpSessionUpdateNotification).params?.update;
-        const isOwnUserEcho =
-          update?.sessionUpdate === "user_message_chunk" &&
-          (update as { content?: { text?: unknown } }).content?.text === this.suppressUserMessageText;
-        if (!isOwnUserEcho) {
-          this.acpEventSink(message as AcpSessionUpdateNotification);
-        }
+      const update = (message as AcpSessionUpdateNotification).params?.update;
+      const isOwnUserEcho =
+        update?.sessionUpdate === "user_message_chunk" &&
+        (update as { content?: { text?: unknown } }).content?.text === this.suppressUserMessageText;
+      if (!isOwnUserEcho) {
+        this.forwardAcpUpdate(message as AcpSessionUpdateNotification);
+      }
+      return;
+    }
+
+    if ("method" in message && id !== undefined && message.method === "session/request_permission") {
+      this.pendingPermissionRequestIds.add(id);
+      if (this.acpPermissionRequestSink) {
+        this.acpPermissionRequestSink(message as AcpPermissionRequest);
+      } else if (this.process?.stdin.writable) {
+        const response: JsonRpcSuccess<AcpPermissionResponseResult> = {
+          jsonrpc: "2.0",
+          id,
+          result: { outcome: { outcome: "cancelled" } },
+        };
+        this.pendingPermissionRequestIds.delete(id);
+        this.process.stdin.write(`${JSON.stringify(response)}\n`);
       }
       return;
     }
@@ -383,10 +426,40 @@ export class BaseAgent {
     });
   }
 
+  private forwardAcpUpdate(notification: AcpSessionUpdateNotification): void {
+    if (this.acpEventSink) {
+      this.acpEventSink(notification);
+      return;
+    }
+    this.bufferedAcpUpdates.push(notification);
+  }
+
+  protected async afterSessionStarted(_result: unknown): Promise<void> {
+    // Subclasses can synthesize additional ACP state from backend-specific session metadata.
+  }
+
+  protected emitInitialSessionState(result: AcpSessionNewResult): void {
+    if (result.modes) {
+      this.emitModesState(result.modes);
+      this.emitAcpUpdate({ sessionUpdate: "current_mode_update", modeId: result.modes.currentModeId });
+    }
+    if (Array.isArray(result.configOptions) && result.configOptions.length > 0) {
+      this.emitConfigOptions(result.configOptions);
+    }
+  }
+
+  protected emitModesState(modes: AcpSessionModeState): void {
+    this.emitAcpUpdate({ sessionUpdate: "_rookery_modes_state", modes });
+  }
+
+  protected emitConfigOptions(configOptions: AcpConfigOption[]): void {
+    this.emitAcpUpdate({ sessionUpdate: "config_option_update", configOptions });
+  }
+
   /** Emit a server-synthesized ACP session/update notification directly. */
   protected emitAcpUpdate(update: Record<string, unknown>): void {
-    if (!this.acpEventSink || !this.sessionIdValue) return;
-    this.acpEventSink({
+    if (!this.sessionIdValue) return;
+    this.forwardAcpUpdate({
       jsonrpc: "2.0",
       method: "session/update",
       params: { sessionId: this.sessionIdValue, update },

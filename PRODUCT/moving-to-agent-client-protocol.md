@@ -1,24 +1,29 @@
 # Moving to Agent Client Protocol
 
-## Current checkpoint — Phase 4 complete
+## Current checkpoint — Phase 5 first pass complete
 
-Server-internal `SessionEvent` double-translation has been removed. Every event now
-flows through ACP directly from subprocess to WebSocket via `BaseAgent.emitAcpUpdate()`
-→ `acpEventSink` → `RoomEventStream.publishAcpUpdate()`. `SessionRoom` no longer
-wire `setEventSink`, and `websocketRoute` only handles `acp_update` messages.
+Server-internal `SessionEvent` double-translation is gone, and the browser now exposes
+ACP-native product features directly:
 
-Deleted: `sessionEventToAcp.ts`, `acpToSessionEvent.ts`, `SessionEvent` union,
-`SessionEventMessage`, `RoomEventStream.publish()`/`broadcast()`, and all related
-server-internal translation logic.
+- permission prompts via `session/request_permission`
+- plan updates
+- usage/cost/context window state
+- mode controls
+- config option controls
+- stop-reason display
+
+Under the hood, the websocket/server bridge now also forwards ACP requests and responses
+needed for those flows (`session/request_permission`, `session/set_mode`,
+`session/set_config_option`).
 
 ## Immediate next to-dos
 
-1. ~~Browser-check the post-replay-cleanup state~~ (code verified; browser smoke test remains)
+1. ~~Browser-check the post-replay-cleanup state~~ (browser smoke test complete)
 2. ~~ACP-only cleanup sweep~~ (zero legacy Pi-RPC / compatibility paths found)
 3. ~~Non-native ACP adapters~~ (ClaudeAgent + CursorAgent + CursorAutoAgent done)
 4. ~~Client-state/UI refactor~~ (Phase 3 complete — ACP-native reducer)
 5. ~~Phase 4: remove server-internal SessionEvent double-translation~~ (complete)
-6. **Phase 5: richer ACP-native UI/UX** (conversation first)
+6. ~~Phase 5: richer ACP-native UI/UX~~ (first pass complete)
 
 Recently completed:
 

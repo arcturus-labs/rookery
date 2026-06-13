@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AcpClientEvent } from "../acpClientTypes";
@@ -17,6 +17,9 @@ const remoteAgentMock = vi.hoisted(() => {
     lastOnAcpEvent: null as ((event: AcpClientEvent) => void) | null,
     defaultRunImplementation,
     runMock: vi.fn(defaultRunImplementation),
+    respondToPermissionRequestMock: vi.fn(async () => undefined),
+    setModeMock: vi.fn(async () => undefined),
+    setConfigOptionMock: vi.fn(async () => undefined),
   };
 });
 
@@ -29,6 +32,9 @@ vi.mock("../remoteAgent", () => ({
     connect = vi.fn(async () => undefined);
     close = vi.fn();
     run = remoteAgentMock.runMock;
+    respondToPermissionRequest = remoteAgentMock.respondToPermissionRequestMock;
+    setMode = remoteAgentMock.setModeMock;
+    setConfigOption = remoteAgentMock.setConfigOptionMock;
   },
 }));
 
@@ -37,6 +43,9 @@ describe("ChatPanel", () => {
     remoteAgentMock.lastOnAcpEvent = null;
     remoteAgentMock.runMock.mockReset();
     remoteAgentMock.runMock.mockImplementation(remoteAgentMock.defaultRunImplementation);
+    remoteAgentMock.respondToPermissionRequestMock.mockReset();
+    remoteAgentMock.setModeMock.mockReset();
+    remoteAgentMock.setConfigOptionMock.mockReset();
   });
 
   afterEach(() => {
@@ -197,5 +206,86 @@ describe("ChatPanel", () => {
 
     expect(await screen.findByText("run error")).toBeInTheDocument();
     expect(screen.getAllByText("Network down")).toHaveLength(2);
+  });
+
+  it("renders ACP plan and usage state without stop reason UI", () => {
+    render(
+      <ChatPanel
+        agentBackend="PiAgent"
+        initialSession={{ id: "s1", agent: "PiAgent", createdAt: "now", restart: {} }}
+        replayEvents={[
+          { type: "acp_plan_update", entries: [{ content: "Inspect files", priority: "high", status: "in_progress" }] },
+          { type: "acp_usage_update", used: 1000, size: 4000, cost: { amount: 0.012, currency: "USD" } },
+          { type: "acp_run_completed", stopReason: "max_tokens" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Plan")).toBeInTheDocument();
+    expect(screen.getByText("Inspect files")).toBeInTheDocument();
+    expect(screen.getByText(/1,000 \/ 4,000 tokens/)).toBeInTheDocument();
+    expect(screen.queryByText(/Stop:/)).not.toBeInTheDocument();
+  });
+
+  it("replays mode/config state into visible controls", () => {
+    render(
+      <ChatPanel
+        agentBackend="PiAgent"
+        initialSession={{ id: "s1", agent: "PiAgent", createdAt: "now", restart: {} }}
+        showAcpSettings
+        replayEvents={[
+          { type: "acp_modes_state", currentModeId: "ask", availableModes: [{ id: "ask", name: "Ask" }, { id: "code", name: "Code" }] },
+          { type: "acp_config_option_update", configOptions: [{ id: "model", name: "Model", type: "select", currentValue: "fast", options: [{ value: "fast", name: "Fast" }] }] },
+        ]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Mode")).toBeInTheDocument();
+    expect(screen.getByLabelText("Model")).toBeInTheDocument();
+  });
+
+  it("responds to permission requests and renders mode/config controls", async () => {
+    render(<ChatPanel agentBackend="PiAgent" initialSession={{ id: "s1", agent: "PiAgent", createdAt: "now", restart: {} }} showAcpSettings />);
+
+    await waitFor(() => expect(remoteAgentMock.lastOnAcpEvent).not.toBeNull());
+
+    await act(async () => {
+      remoteAgentMock.lastOnAcpEvent?.({
+        type: "acp_modes_state",
+        currentModeId: "ask",
+        availableModes: [
+          { id: "ask", name: "Ask" },
+          { id: "code", name: "Code" },
+        ],
+      });
+      remoteAgentMock.lastOnAcpEvent?.({
+        type: "acp_config_option_update",
+        configOptions: [{
+          id: "model",
+          name: "Model",
+          type: "select",
+          currentValue: "fast",
+          options: [
+            { value: "fast", name: "Fast" },
+            { value: "smart", name: "Smart" },
+          ],
+        }],
+      });
+      remoteAgentMock.lastOnAcpEvent?.({
+        type: "acp_permission_request",
+        requestId: "perm-1",
+        toolCall: { toolCallId: "tool-1", title: "Write file", kind: "edit", status: "pending" },
+        options: [{ optionId: "allow-once", name: "Allow once", kind: "allow_once" }],
+      });
+    });
+
+    await userEvent.selectOptions(screen.getByLabelText("Mode"), "code");
+    expect(remoteAgentMock.setModeMock).toHaveBeenCalledWith("code");
+
+    await userEvent.selectOptions(screen.getByLabelText("Model"), "smart");
+    expect(remoteAgentMock.setConfigOptionMock).toHaveBeenCalledWith("model", "smart");
+
+    await userEvent.click(screen.getByRole("button", { name: "Allow once" }));
+    expect(remoteAgentMock.respondToPermissionRequestMock).toHaveBeenCalledWith("perm-1", { outcome: "selected", optionId: "allow-once" });
   });
 });

@@ -87,7 +87,8 @@ Terse map of `src/`:
   - `RemoteAgent` uses **HTTP for session control** and **WebSocket for in-session events**.
   - `POST /api/agent/start` creates/reuses/restarts a session runtime.
   - `GET /api/ws?sessionId=...` subscribes to live session events; restored transcript history comes from ACP `session/load` after the websocket is attached.
-  - The websocket boundary now carries **ACP-shaped JSON-RPC messages**; the current browser client still reduces them into the existing `SessionEvent`/UI view-model as a migration step.
+  - The websocket boundary carries **ACP JSON-RPC directly** end-to-end.
+  - The browser client handles ACP-native conversation state including tool calls, permission requests, plans, usage updates, mode/config controls, and stop reasons.
   - Session runtimes are automatically stopped after the last websocket client leaves and the room stays idle past a short grace period.
 - **Screens (`src/client/screens`)**:
   - `AgentSelectionScreen.tsx`: choose an agent; start new session or continue.

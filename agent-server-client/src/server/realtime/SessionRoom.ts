@@ -1,9 +1,9 @@
 import type { EnvironmentEventPayload } from "../../shared/realtime.js";
-import type { AcpUpdateMessage } from "../../shared/realtime.js";
 import {
   ENVIRONMENT_ENTERED_KIND,
   ENVIRONMENT_EXITED_KIND,
 } from "../../shared/environment.js";
+import type { JsonRpcFailure, JsonRpcSuccess } from "../../shared/acp.js";
 import type { EnvironmentEventListener, EnvironmentOfferInfo, EnvironmentResolution } from "../environment/types.js";
 import type { BaseAgent } from "../agents/BaseAgent.js";
 import type { AgentSessionRecord } from "../agents/sessionLog.js";
@@ -70,6 +70,9 @@ export class SessionRoom implements EnvironmentEventListener {
   attachRuntimeEventSink(): void {
     this.currentRuntime.agent.setAcpEventSink((notification) => {
       void this.events.publishAcpUpdate(notification);
+    });
+    this.currentRuntime.agent.setAcpPermissionRequestSink((request) => {
+      void this.events.publishAcpRequest(request);
     });
   }
 
@@ -168,9 +171,22 @@ export class SessionRoom implements EnvironmentEventListener {
     await this.currentRuntime.agent.stop();
   }
 
-  /** Cancel the current turn but keep the session (subprocess) alive. */
   async cancel(): Promise<void> {
     await this.currentRuntime.agent.cancel();
+  }
+
+  async setMode(modeId: string): Promise<unknown> {
+    await this.ensureStarted();
+    return await this.currentRuntime.agent.setMode(modeId);
+  }
+
+  async setConfigOption(configId: string, value: string): Promise<unknown> {
+    await this.ensureStarted();
+    return await this.currentRuntime.agent.setConfigOption(configId, value);
+  }
+
+  respondToPermissionRequest(message: JsonRpcSuccess | JsonRpcFailure): void {
+    this.currentRuntime.agent.respondToPermissionRequest(message);
   }
 
   async broadcastEnvironmentEvent(event: EnvironmentEventPayload): Promise<void> {

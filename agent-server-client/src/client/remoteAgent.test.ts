@@ -207,4 +207,100 @@ describe("RemoteAgent", () => {
 
     expect(events).toContainEqual(expect.objectContaining({ type: "acp_connection_error" }));
   });
+
+  it("surfaces non-end-turn stop reasons", async () => {
+    vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
+    const events: AcpClientEvent[] = [];
+    const agent = new RemoteAgent({ session, onAcpEvent: (event) => events.push(event) });
+
+    const runPromise = agent.run("hello");
+    const socket = websocketMock.MockWebSocket.instances[0]!;
+    socket.emitOpen();
+    await waitForCondition(() => expect(socket.sent).toHaveLength(1));
+    socket.emitMessage({ jsonrpc: "2.0", id: "prompt-1", result: { stopReason: "refusal" } });
+
+    await runPromise;
+    expect(events).toContainEqual({ type: "acp_run_completed", stopReason: "refusal" });
+  });
+
+  it("surfaces permission requests and mode/config updates", async () => {
+    vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
+    const events: AcpClientEvent[] = [];
+    const agent = new RemoteAgent({ session, onAcpEvent: (event) => events.push(event) });
+
+    void agent.connect();
+    const socket = websocketMock.MockWebSocket.instances[0]!;
+    socket.emitOpen();
+    await Promise.resolve();
+
+    socket.emitMessage({
+      jsonrpc: "2.0",
+      id: "perm-1",
+      method: "session/request_permission",
+      params: {
+        sessionId: "s1",
+        toolCall: { toolCallId: "tool-1", title: "Write file", kind: "edit", status: "pending" },
+        options: [{ optionId: "allow-once", name: "Allow once", kind: "allow_once" }],
+      },
+    });
+    socket.emitMessage({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { sessionId: "s1", update: { sessionUpdate: "plan", entries: [{ content: "Plan step", priority: "high", status: "pending" }] } },
+    });
+    socket.emitMessage({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { sessionId: "s1", update: { sessionUpdate: "usage_update", used: 10, size: 20 } },
+    });
+
+    expect(events).toContainEqual({
+      type: "acp_permission_request",
+      requestId: "perm-1",
+      toolCall: { toolCallId: "tool-1", title: "Write file", kind: "edit", status: "pending" },
+      options: [{ optionId: "allow-once", name: "Allow once", kind: "allow_once" }],
+    });
+    expect(events).toContainEqual({ type: "acp_plan_update", entries: [{ content: "Plan step", priority: "high", status: "pending" }] });
+    expect(events).toContainEqual({ type: "acp_usage_update", used: 10, size: 20 });
+  });
+
+  it("sends mode/config changes and permission responses over websocket", async () => {
+    vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
+    const agent = new RemoteAgent({ session });
+
+    void agent.connect();
+    const socket = websocketMock.MockWebSocket.instances[0]!;
+    socket.emitOpen();
+    await Promise.resolve();
+
+    const setModePromise = agent.setMode("code");
+    await waitForCondition(() => expect(socket.sent).toHaveLength(1));
+    expect(JSON.parse(socket.sent[0]!)).toEqual({
+      jsonrpc: "2.0",
+      id: "rpc-1",
+      method: "session/set_mode",
+      params: { sessionId: "s1", modeId: "code" },
+    });
+    socket.emitMessage({ jsonrpc: "2.0", id: "rpc-1", result: {} });
+    await setModePromise;
+
+    const setConfigPromise = agent.setConfigOption("model", "smart");
+    await waitForCondition(() => expect(socket.sent).toHaveLength(2));
+    expect(JSON.parse(socket.sent[1]!)).toEqual({
+      jsonrpc: "2.0",
+      id: "rpc-2",
+      method: "session/set_config_option",
+      params: { sessionId: "s1", configId: "model", value: "smart" },
+    });
+    socket.emitMessage({ jsonrpc: "2.0", id: "rpc-2", result: { configOptions: [] } });
+    await setConfigPromise;
+
+    await agent.respondToPermissionRequest("perm-1", { outcome: "selected", optionId: "allow-once" });
+    await waitForCondition(() => expect(socket.sent).toHaveLength(3));
+    expect(JSON.parse(socket.sent[2]!)).toEqual({
+      jsonrpc: "2.0",
+      id: "perm-1",
+      result: { outcome: { outcome: "selected", optionId: "allow-once" } },
+    });
+  });
 });
