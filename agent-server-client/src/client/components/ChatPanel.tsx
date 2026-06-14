@@ -25,7 +25,13 @@ import {
 } from "../parentMessageTool";
 
 type StatusState = { status: AgentRunStatus | "queued"; message: string };
-type QueuedMessage = { id: string; text: string };
+type QueuedMessage = {
+  id: string;
+  text: string;
+  draftText: string;
+  isEditing: boolean;
+  isSendingNow: boolean;
+};
 type PermissionRequestState = {
   requestId: string;
   toolCall: AcpPermissionToolCall;
@@ -50,6 +56,13 @@ type Action =
   | { type: "STATUS_CHANGED"; status: AgentRunStatus; message?: string }
   | { type: "USER_MESSAGE_QUEUED"; message: QueuedMessage }
   | { type: "USER_MESSAGE_DEQUEUED"; id: string }
+  | { type: "QUEUED_MESSAGE_EDIT_STARTED"; id: string }
+  | { type: "QUEUED_MESSAGE_EDIT_CHANGED"; id: string; text: string }
+  | { type: "QUEUED_MESSAGE_EDIT_CANCELLED"; id: string }
+  | { type: "QUEUED_MESSAGE_EDIT_SAVED"; id: string }
+  | { type: "QUEUED_MESSAGE_SEND_NOW_STARTED"; id: string }
+  | { type: "QUEUED_MESSAGE_SEND_NOW_FINISHED"; id: string }
+  | { type: "QUEUED_MESSAGE_RESTORED"; message: QueuedMessage; index: number }
   | { type: "USER_MESSAGE"; text: string; messageId?: string }
   | { type: "AGENT_MESSAGE_CHUNK"; text: string }
   | { type: "AGENT_THOUGHT_CHUNK"; text: string }
@@ -93,6 +106,10 @@ function updateLastToolBlock(blocks: Block[], toolCallId: string, update: (block
   return next;
 }
 
+function queueStatusMessage(count: number): string {
+  return `${count} queued message${count === 1 ? "" : "s"}`;
+}
+
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "STATUS_CHANGED":
@@ -102,18 +119,86 @@ function reducer(state: State, action: Action): State {
         isAgentProcessing: action.status !== "idle" && action.status !== "error",
       };
 
-    case "USER_MESSAGE_QUEUED":
+    case "USER_MESSAGE_QUEUED": {
+      const queuedMessages = [...state.queuedMessages, action.message];
       return {
         ...state,
-        status: { status: "queued", message: `${state.queuedMessages.length + 1} queued message${state.queuedMessages.length === 0 ? "" : "s"}` },
-        queuedMessages: [...state.queuedMessages, action.message],
+        status: { status: "queued", message: queueStatusMessage(queuedMessages.length) },
+        queuedMessages,
+      };
+    }
+
+    case "USER_MESSAGE_DEQUEUED": {
+      const queuedMessages = state.queuedMessages.filter((message) => message.id !== action.id);
+      return {
+        ...state,
+        status: queuedMessages.length > 0
+          ? { status: "queued", message: queueStatusMessage(queuedMessages.length) }
+          : (state.isAgentProcessing ? state.status : { status: "idle", message: state.lastStopReason === "cancelled" ? "Stopped" : "Ready" }),
+        queuedMessages,
+      };
+    }
+
+    case "QUEUED_MESSAGE_EDIT_STARTED":
+      return {
+        ...state,
+        queuedMessages: state.queuedMessages.map((message) => (
+          message.id === action.id ? { ...message, isEditing: true, draftText: message.text } : message
+        )),
       };
 
-    case "USER_MESSAGE_DEQUEUED":
+    case "QUEUED_MESSAGE_EDIT_CHANGED":
       return {
         ...state,
-        queuedMessages: state.queuedMessages.filter((message) => message.id !== action.id),
+        queuedMessages: state.queuedMessages.map((message) => (
+          message.id === action.id ? { ...message, draftText: action.text } : message
+        )),
       };
+
+    case "QUEUED_MESSAGE_EDIT_CANCELLED":
+      return {
+        ...state,
+        queuedMessages: state.queuedMessages.map((message) => (
+          message.id === action.id ? { ...message, isEditing: false, draftText: message.text } : message
+        )),
+      };
+
+    case "QUEUED_MESSAGE_EDIT_SAVED":
+      return {
+        ...state,
+        queuedMessages: state.queuedMessages.map((message) => (
+          message.id === action.id ? { ...message, text: message.draftText.trim(), draftText: message.draftText.trim(), isEditing: false } : message
+        )),
+      };
+
+    case "QUEUED_MESSAGE_SEND_NOW_STARTED":
+      return {
+        ...state,
+        queuedMessages: state.queuedMessages.map((message) => (
+          message.id === action.id ? { ...message, isSendingNow: true, isEditing: false } : message
+        )),
+      };
+
+    case "QUEUED_MESSAGE_SEND_NOW_FINISHED": {
+      const queuedMessages = state.queuedMessages.filter((message) => message.id !== action.id);
+      return {
+        ...state,
+        status: queuedMessages.length > 0
+          ? { status: "queued", message: queueStatusMessage(queuedMessages.length) }
+          : (state.isAgentProcessing ? state.status : { status: "idle", message: state.lastStopReason === "cancelled" ? "Stopped" : "Ready" }),
+        queuedMessages,
+      };
+    }
+
+    case "QUEUED_MESSAGE_RESTORED": {
+      const queuedMessages = [...state.queuedMessages];
+      queuedMessages.splice(action.index, 0, action.message);
+      return {
+        ...state,
+        status: { status: "queued", message: queueStatusMessage(queuedMessages.length) },
+        queuedMessages,
+      };
+    }
 
     case "USER_MESSAGE": {
       const block: UserMessageBlock = { type: "text", role: "user", text: action.text, isStreaming: false };
@@ -293,8 +378,8 @@ function reducer(state: State, action: Action): State {
         pendingPermission: null,
         lastStopReason: action.stopReason,
         status: state.queuedMessages.length > 0
-          ? { status: "queued", message: `${state.queuedMessages.length} queued message${state.queuedMessages.length === 1 ? "" : "s"}` }
-          : { status: "idle", message: "Ready" },
+          ? { status: "queued", message: queueStatusMessage(state.queuedMessages.length) }
+          : { status: action.stopReason === "cancelled" ? "idle" : "idle", message: action.stopReason === "cancelled" ? "Stopped" : "Ready" },
         blocks: finalizeStreamingBlocks(state.blocks),
       };
 
@@ -560,6 +645,18 @@ export function ChatPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentBackend, initialSession?.id]);
 
+  const createQueuedMessage = (text: string): QueuedMessage => {
+    messageIdRef.current += 1;
+    const trimmed = text.trim();
+    return {
+      id: `queued-${messageIdRef.current}`,
+      text: trimmed,
+      draftText: trimmed,
+      isEditing: false,
+      isSendingNow: false,
+    };
+  };
+
   const startAgentRun = (text: string) => {
     isAgentProcessingRef.current = true;
     const activeAgent = agentRef.current;
@@ -571,14 +668,57 @@ export function ChatPanel({
     if (disabled) return;
 
     if (isAgentProcessingRef.current) {
-      messageIdRef.current += 1;
-      const queuedMessage = { id: `queued-${messageIdRef.current}`, text };
+      const queuedMessage = createQueuedMessage(text);
       queueRef.current.push(queuedMessage);
       dispatch({ type: "USER_MESSAGE_QUEUED", message: queuedMessage });
       return;
     }
 
     startAgentRun(text);
+  };
+
+  const handleStop = () => {
+    const activeAgent = agentRef.current;
+    if (!activeAgent || !isAgentProcessingRef.current) return;
+    void activeAgent.cancel();
+  };
+
+  const handleQueuedMessageDelete = (id: string) => {
+    queueRef.current = queueRef.current.filter((message) => message.id !== id);
+    dispatch({ type: "USER_MESSAGE_DEQUEUED", id });
+  };
+
+  const handleQueuedMessageEditSave = (id: string, text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      handleQueuedMessageDelete(id);
+      return;
+    }
+    queueRef.current = queueRef.current.map((message) => (
+      message.id === id ? { ...message, text: trimmed, draftText: trimmed, isEditing: false } : message
+    ));
+    dispatch({ type: "QUEUED_MESSAGE_EDIT_SAVED", id });
+  };
+
+  const handleQueuedMessageSendNow = async (message: QueuedMessage) => {
+    const activeAgent = agentRef.current;
+    if (!activeAgent) return;
+    const queueIndex = queueRef.current.findIndex((queued) => queued.id === message.id);
+    if (queueIndex === -1) return;
+
+    queueRef.current.splice(queueIndex, 1);
+    dispatch({ type: "QUEUED_MESSAGE_SEND_NOW_STARTED", id: message.id });
+
+    try {
+      await activeAgent.sendSteeringMessage(message.text);
+      dispatch({ type: "QUEUED_MESSAGE_SEND_NOW_FINISHED", id: message.id });
+    } catch (error) {
+      const restored = { ...message, isEditing: false, isSendingNow: false, draftText: message.text };
+      queueRef.current.splice(Math.min(queueIndex, queueRef.current.length), 0, restored);
+      dispatch({ type: "QUEUED_MESSAGE_SEND_NOW_FINISHED", id: message.id });
+      dispatch({ type: "QUEUED_MESSAGE_RESTORED", message: restored, index: Math.min(queueIndex, state.queuedMessages.length) });
+      dispatch({ type: "RUN_FAILED", error: error instanceof Error ? error.message : String(error), source: "run" });
+    }
   };
 
   const handlePermissionDecision = (optionId?: string) => {
@@ -652,7 +792,75 @@ export function ChatPanel({
           <div className="cwa-queue__label">Queued</div>
           <ol className="cwa-queue__list">
             {state.queuedMessages.map((message) => (
-              <li key={message.id} className="cwa-queue__item">{message.text}</li>
+              <li key={message.id} className="cwa-queue__item">
+                {message.isEditing ? (
+                  <div className="cwa-queue__row cwa-queue__row--editing">
+                    <textarea
+                      aria-label={`Edit queued message ${message.id}`}
+                      className="cwa-compose__textarea cwa-queue__textarea"
+                      rows={3}
+                      value={message.draftText}
+                      onChange={(event) => dispatch({ type: "QUEUED_MESSAGE_EDIT_CHANGED", id: message.id, text: event.target.value })}
+                    />
+                    <div className="cwa-queue__actions cwa-queue__actions--editing">
+                      <button
+                        type="button"
+                        className="cwa-queue__icon-button"
+                        aria-label="Save queued message"
+                        title="Save queued message"
+                        onClick={() => handleQueuedMessageEditSave(message.id, message.draftText)}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        className="cwa-queue__icon-button cwa-queue__icon-button--secondary"
+                        aria-label="Cancel editing queued message"
+                        title="Cancel editing queued message"
+                        onClick={() => dispatch({ type: "QUEUED_MESSAGE_EDIT_CANCELLED", id: message.id })}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="cwa-queue__row">
+                    <div className="cwa-queue__text">{message.text}</div>
+                    <div className="cwa-queue__actions">
+                      <button
+                        type="button"
+                        className="cwa-queue__icon-button"
+                        aria-label="Edit queued message"
+                        title="Edit queued message"
+                        onClick={() => dispatch({ type: "QUEUED_MESSAGE_EDIT_STARTED", id: message.id })}
+                        disabled={message.isSendingNow}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="cwa-queue__icon-button"
+                        aria-label={message.isSendingNow ? "Sending queued message now" : "Send queued message now"}
+                        title={message.isSendingNow ? "Sending queued message now" : "Send queued message now"}
+                        onClick={() => void handleQueuedMessageSendNow(message)}
+                        disabled={message.isSendingNow}
+                      >
+                        {message.isSendingNow ? "…" : "↗"}
+                      </button>
+                      <button
+                        type="button"
+                        className="cwa-queue__icon-button cwa-queue__icon-button--secondary"
+                        aria-label="Delete queued message"
+                        title="Delete queued message"
+                        onClick={() => handleQueuedMessageDelete(message.id)}
+                        disabled={message.isSendingNow}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
             ))}
           </ol>
         </div>
@@ -681,7 +889,7 @@ export function ChatPanel({
         </div>
         {usageLabel && <span className="cwa-status-line__usage">{usageLabel}</span>}
       </div>
-      <ComposeBox onSubmit={handleSubmit} isQueueing={state.isAgentProcessing} disabled={disabled} />
+      <ComposeBox onSubmit={handleSubmit} onStop={handleStop} isQueueing={state.isAgentProcessing} disabled={disabled} />
       <BlockModal block={selectedBlock} onClose={() => setSelectedBlock(null)} />
     </div>
   );

@@ -91,4 +91,27 @@ export class PiAgent extends BaseAgent {
   constructor(options: PiAgentOptions = {}, restartMetadata?: AgentRestartMetadata) {
     super(toBaseAgentOptions(options, restartMetadata), restartMetadata);
   }
+
+  override async sendSteeringMessage(userMessage: string): Promise<void> {
+    await this.ensureStarted();
+    const trimmed = userMessage.trim();
+    if (!trimmed) return;
+
+    if (!this.hasActiveWorkflow || !this.sessionId) {
+      await super.sendSteeringMessage(trimmed);
+      return;
+    }
+
+    this.emitUserMessageChunk(trimmed);
+    try {
+      await this.sendRequest("_rookery/steering_prompt", { sessionId: this.sessionId, text: trimmed });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("Method not found") || message.includes("Cannot send steering prompt without an active turn")) {
+        await super.sendSteeringMessage(trimmed);
+        return;
+      }
+      throw error;
+    }
+  }
 }

@@ -292,6 +292,22 @@ export class RemoteAgent {
     return run;
   }
 
+  async cancel(): Promise<void> {
+    await this.connect();
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error("Remote agent websocket is not open.");
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      method: "session/cancel",
+      params: { sessionId: this.session?.id },
+    }));
+  }
+
+  async sendSteeringMessage(text: string): Promise<void> {
+    this.onAcpEvent?.({ type: "acp_user_message", text });
+    await this.sendSocketRequest("_rookery/steering_prompt", { sessionId: this.session?.id, text });
+  }
+
   async setMode(modeId: string): Promise<void> {
     const result = await this.sendSocketRequest("session/set_mode", { sessionId: this.session?.id, modeId });
     const modes = result && typeof result === "object" ? (result as { modes?: unknown }).modes : undefined;
@@ -353,11 +369,6 @@ export class RemoteAgent {
 
   private handlePromptResponse(message: AcpPromptResponse): void {
     const stopReason = message.result?.stopReason ?? "end_turn";
-    if (stopReason === "cancelled") {
-      this.onAcpEvent?.({ type: "acp_run_failed", error: "Run cancelled" });
-      this.rejectPendingRun("Run cancelled", String(message.id));
-      return;
-    }
     this.onAcpEvent?.({ type: "acp_run_completed", stopReason });
     this.resolvePendingRun(String(message.id));
   }

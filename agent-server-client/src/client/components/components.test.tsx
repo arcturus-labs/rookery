@@ -99,11 +99,13 @@ describe("ComposeBox", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it("shows queueing affordance while the agent is busy", () => {
-    render(<ComposeBox onSubmit={vi.fn()} isQueueing />);
+  it("shows stop affordance while the agent is busy", async () => {
+    const onStop = vi.fn();
+    render(<ComposeBox onSubmit={vi.fn()} onStop={onStop} isQueueing />);
 
     expect(screen.getByPlaceholderText("Agent is busy — message will be queued...")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Queue" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 });
 

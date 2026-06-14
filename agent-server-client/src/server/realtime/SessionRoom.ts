@@ -141,12 +141,12 @@ export class SessionRoom implements EnvironmentEventListener {
     await this.startPromise;
   }
 
-  async run(message: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  async run(message: string): Promise<{ ok: true; stopReason: string } | { ok: false; error: string }> {
     const run = async () => {
       try {
         await this.ensureStarted();
         await this.currentRuntime.agent.run(message);
-        return { ok: true } as const;
+        return { ok: true, stopReason: this.currentRuntime.agent.lastStopReason ?? "end_turn" } as const;
       } catch (error) {
         const errorMsg = errorMessage(error);
         void this.events.publishAcpUpdate({
@@ -173,6 +173,11 @@ export class SessionRoom implements EnvironmentEventListener {
 
   async cancel(): Promise<void> {
     await this.currentRuntime.agent.cancel();
+  }
+
+  async sendSteeringMessage(message: string): Promise<void> {
+    await this.ensureStarted();
+    await this.currentRuntime.agent.sendSteeringMessage(message);
   }
 
   async setMode(modeId: string): Promise<unknown> {

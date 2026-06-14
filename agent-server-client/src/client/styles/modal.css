@@ -82,20 +82,81 @@
 .cwa-queue__list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 7.5em;
+  gap: 6px;
+  max-height: 10.5em;
   margin: 0;
   overflow-y: auto;
-  padding-left: 1.35em;
+  padding: 0;
+  list-style: none;
   color: var(--text-muted);
   font-size: 0.85em;
 }
 
 .cwa-queue__item {
-  padding-right: 8px;
+  min-width: 0;
+}
+
+.cwa-queue__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cwa-queue__row--editing {
+  align-items: flex-start;
+}
+
+.cwa-queue__text {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.cwa-queue__textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.cwa-queue__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cwa-queue__actions--editing {
+  padding-top: 2px;
+}
+
+.cwa-queue__icon-button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.cwa-queue__icon-button:hover:not(:disabled) {
+  background: var(--background-modifier-hover);
+}
+
+.cwa-queue__icon-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cwa-queue__icon-button--secondary {
+  color: var(--text-muted);
 }
 
 /* =========================================================

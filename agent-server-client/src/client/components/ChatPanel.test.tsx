@@ -18,6 +18,8 @@ const remoteAgentMock = vi.hoisted(() => {
     defaultRunImplementation,
     runMock: vi.fn(defaultRunImplementation),
     respondToPermissionRequestMock: vi.fn(async () => undefined),
+    cancelMock: vi.fn(async () => undefined),
+    sendSteeringMessageMock: vi.fn(async () => undefined),
     setModeMock: vi.fn(async () => undefined),
     setConfigOptionMock: vi.fn(async () => undefined),
   };
@@ -33,6 +35,8 @@ vi.mock("../remoteAgent", () => ({
     close = vi.fn();
     run = remoteAgentMock.runMock;
     respondToPermissionRequest = remoteAgentMock.respondToPermissionRequestMock;
+    cancel = remoteAgentMock.cancelMock;
+    sendSteeringMessage = remoteAgentMock.sendSteeringMessageMock;
     setMode = remoteAgentMock.setModeMock;
     setConfigOption = remoteAgentMock.setConfigOptionMock;
   },
@@ -44,6 +48,8 @@ describe("ChatPanel", () => {
     remoteAgentMock.runMock.mockReset();
     remoteAgentMock.runMock.mockImplementation(remoteAgentMock.defaultRunImplementation);
     remoteAgentMock.respondToPermissionRequestMock.mockReset();
+    remoteAgentMock.cancelMock.mockReset();
+    remoteAgentMock.sendSteeringMessageMock.mockReset();
     remoteAgentMock.setModeMock.mockReset();
     remoteAgentMock.setConfigOptionMock.mockReset();
   });
@@ -71,6 +77,54 @@ describe("ChatPanel", () => {
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     expect(screen.getByPlaceholderText("Type a message...")).toBeDisabled();
     expect(remoteAgentMock.runMock).not.toHaveBeenCalled();
+  });
+
+  it("queues on enter while busy and exposes stop instead of queue", async () => {
+    remoteAgentMock.runMock.mockImplementation(async (message: string) => {
+      remoteAgentMock.lastOnAcpEvent?.({ type: "acp_user_message", text: message });
+      remoteAgentMock.lastOnAcpEvent?.({ type: "acp_status_changed", status: "busy", message: "Agent is working" });
+      await new Promise(() => undefined);
+    });
+    render(<ChatPanel agentBackend="PiAgent" initialSession={{ id: "s1", agent: "PiAgent", createdAt: "now", restart: {} }} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Type a message..."), "First{enter}");
+    expect(remoteAgentMock.runMock).toHaveBeenCalledWith("First");
+
+    await userEvent.type(screen.getByPlaceholderText("Agent is busy — message will be queued..."), "Second{enter}");
+    expect(screen.getByText("Queued")).toBeInTheDocument();
+    expect(screen.getByText("Second")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(remoteAgentMock.cancelMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("edits, sends now, and deletes queued messages", async () => {
+    remoteAgentMock.runMock.mockImplementation(async (message: string) => {
+      remoteAgentMock.lastOnAcpEvent?.({ type: "acp_user_message", text: message });
+      remoteAgentMock.lastOnAcpEvent?.({ type: "acp_status_changed", status: "busy", message: "Agent is working" });
+      await new Promise(() => undefined);
+    });
+    remoteAgentMock.sendSteeringMessageMock.mockResolvedValue(undefined);
+    render(<ChatPanel agentBackend="PiAgent" initialSession={{ id: "s1", agent: "PiAgent", createdAt: "now", restart: {} }} />);
+
+    await userEvent.type(screen.getByPlaceholderText("Type a message..."), "First{enter}");
+    await userEvent.type(screen.getByPlaceholderText("Agent is busy — message will be queued..."), "Second{enter}");
+    await userEvent.type(screen.getByPlaceholderText("Agent is busy — message will be queued..."), "Third{enter}");
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Edit queued message" })[0]!);
+    const editBox = screen.getByLabelText(/Edit queued message queued-/);
+    await userEvent.clear(editBox);
+    await userEvent.type(editBox, "Second updated");
+    await userEvent.click(screen.getByRole("button", { name: "Save queued message" }));
+    expect(screen.getByText("Second updated")).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Send queued message now" })[0]!);
+    expect(remoteAgentMock.sendSteeringMessageMock).toHaveBeenCalledWith("Second updated");
+    await waitFor(() => expect(screen.queryByText("Second updated")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete queued message" }));
+    expect(screen.queryByText("Third")).not.toBeInTheDocument();
   });
 
   it("relays message_parent tool calls to the parent message target", async () => {

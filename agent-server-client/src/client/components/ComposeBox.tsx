@@ -2,11 +2,12 @@ import React, { useRef } from "react";
 
 interface Props {
   onSubmit: (text: string) => void;
+  onStop?: () => void;
   disabled?: boolean;
   isQueueing?: boolean;
 }
 
-export function ComposeBox({ onSubmit, disabled = false, isQueueing = false }: Props) {
+export function ComposeBox({ onSubmit, onStop, disabled = false, isQueueing = false }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const submit = () => {
@@ -33,8 +34,12 @@ export function ComposeBox({ onSubmit, disabled = false, isQueueing = false }: P
         disabled={disabled}
         onKeyDown={onKeyDown}
       />
-      <button className="cwa-compose__send" onClick={submit} disabled={disabled}>
-        {isQueueing ? "Queue" : "Send"}
+      <button
+        className="cwa-compose__send"
+        onClick={isQueueing ? onStop : submit}
+        disabled={disabled || (isQueueing && !onStop)}
+      >
+        {isQueueing ? "Stop" : "Send"}
       </button>
     </div>
   );

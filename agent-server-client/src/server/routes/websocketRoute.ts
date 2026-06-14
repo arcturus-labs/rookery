@@ -5,6 +5,7 @@ import type {
   AcpSetModeRequest,
   JsonRpcFailure,
   JsonRpcMessage,
+  JsonRpcRequest,
   JsonRpcSuccess,
 } from "../../shared/acp.js";
 import type { SessionRoomManager } from "../realtime/SessionRoomManager.js";
@@ -40,6 +41,10 @@ function isSetConfigOptionRequest(message: JsonRpcMessage): message is AcpSetCon
 
 function isCancelMessage(message: JsonRpcMessage): boolean {
   return "method" in message && message.method === "session/cancel";
+}
+
+function isSteeringMessageRequest(message: JsonRpcMessage): message is JsonRpcRequest & { params?: { sessionId?: string; text?: string } } {
+  return "id" in message && "method" in message && message.method === "_rookery/steering_prompt";
 }
 
 function isJsonRpcSuccessMessage(message: JsonRpcMessage): message is JsonRpcSuccess {
@@ -118,6 +123,25 @@ export async function registerWebsocketRoute(app: FastifyInstance, roomManager: 
         return;
       }
 
+      if (isSteeringMessageRequest(message)) {
+        if (typeof message.params?.sessionId !== "string" || message.params.sessionId !== sessionId) {
+          send(jsonRpcError("sessionId does not match websocket session", message.id));
+          return;
+        }
+        if (typeof message.params?.text !== "string" || message.params.text.trim().length === 0) {
+          send(jsonRpcError("Missing steering message text", message.id));
+          return;
+        }
+        void room.sendSteeringMessage(message.params.text)
+          .then(() => {
+            send(jsonRpcSuccess(message.id, { accepted: true }));
+          })
+          .catch((error) => {
+            send(jsonRpcError(errorMessage(error), message.id));
+          });
+        return;
+      }
+
       if (isSetModeRequest(message)) {
         if (requestSessionId(message) !== sessionId) {
           send(jsonRpcError("sessionId does not match websocket session", message.id));
@@ -187,7 +211,7 @@ export async function registerWebsocketRoute(app: FastifyInstance, roomManager: 
             send(jsonRpcError(result.error, message.id));
             return;
           }
-          send(jsonRpcSuccess(message.id, { stopReason: "end_turn" }));
+          send(jsonRpcSuccess(message.id, { stopReason: result.stopReason }));
         })
         .catch((error) => {
           send(jsonRpcError(errorMessage(error), message.id));

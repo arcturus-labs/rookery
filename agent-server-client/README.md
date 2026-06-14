@@ -97,9 +97,9 @@ Terse map of `src/`:
   - `ChatScreen.tsx`: active chat view; renders `ChatPanel` for the current session.
   - App startup reopens the most recent saved session record and lands directly in chat when one exists.
 - **UI components (`src/client/components`)**:
-  - `ChatPanel.tsx`: main chat controller (state machine for replayed/live events, queueing, status line, modal selection).
+  - `ChatPanel.tsx`: main chat controller (state machine for replayed/live events, auto-queueing, queued-message edit/send-now/delete controls, stop/status line, modal selection).
   - `MessageThread.tsx`: renders block timeline and auto-scroll behavior during streaming.
-  - `ComposeBox.tsx`: message input + send/queue button (Enter to send, Shift+Enter newline).
+  - `ComposeBox.tsx`: message input + send/stop button (Enter sends; if the agent is already working, the message is queued automatically; Shift+Enter inserts a newline).
   - `BlockModal.tsx`: expanded view for a selected message/tool/error block.
   - `UserMessageBlock.tsx`: renders user text message blocks (markdown).
   - `AgentTextBlock.tsx`: renders assistant text message blocks (markdown + streaming cursor).
@@ -212,6 +212,7 @@ The **`EnvironmentManager`** sits alongside the room manager. When a room is cre
 - `BaseAgent.setEventSink((event) => ...)`: wired by the room to route agent events into the session log and subscribers.
 - `BaseAgent.ensureStarted()`: start a new provider session or resume from restart metadata.
 - `BaseAgent.run(userMessage)`: run one prompt turn (queued serially by the room).
+- `BaseAgent.sendSteeringMessage(userMessage)`: inject a send-now message into the current workflow; the current ACP-backed implementation applies it at the next safe point inside the same workflow before the normal queued-turn drain continues.
 - `BaseAgent.stop()`: release provider resources and fail any active run.
 - `BaseAgent.record`: current `AgentSessionRecord` (set after `ensureStarted`).
 

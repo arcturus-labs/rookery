@@ -89,6 +89,50 @@ describe("BaseAgent", () => {
     await agent.stop();
   });
 
+  it("applies send-now messages inside the current workflow before completing the run", async () => {
+    const agent = new BaseAgent({
+      command: "node",
+      args: [FIXTURE],
+      cwd: path.resolve("."),
+      sessionCwd: path.resolve("."),
+      agentName: "TestAcpAgent",
+    });
+    const acp = collectAcp(agent);
+
+    await agent.ensureStarted();
+    const runPromise = agent.run("slow");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const sendNowPromise = agent.sendSteeringMessage("please continue with tests");
+
+    await Promise.all([runPromise, sendNowPromise]);
+
+    expect(acp).toContainEqual(
+      expect.objectContaining({
+        method: "session/update",
+        params: expect.objectContaining({
+          update: expect.objectContaining({
+            sessionUpdate: "user_message_chunk",
+            content: { type: "text", text: "please continue with tests" },
+          }),
+        }),
+      }),
+    );
+    expect(acp).toContainEqual(
+      expect.objectContaining({
+        method: "session/update",
+        params: expect.objectContaining({
+          update: expect.objectContaining({
+            sessionUpdate: "agent_message_chunk",
+            content: { type: "text", text: "echo:please continue with tests" },
+          }),
+        }),
+      }),
+    );
+    expect(agent.lastStopReason).toBe("end_turn");
+
+    await agent.stop();
+  });
+
   it("reloads an existing ACP session", async () => {
     const agent = new BaseAgent({
       command: "node",

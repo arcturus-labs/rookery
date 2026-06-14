@@ -89,6 +89,23 @@ describe("SessionRoom", () => {
     expect(seen).toEqual([]);
   });
 
+  it("delegates send-now steering messages to the agent runtime", async () => {
+    class SteeringAgent extends TestAgent {
+      seen: string[] = [];
+
+      override async sendSteeringMessage(message: string): Promise<void> {
+        this.seen.push(message);
+      }
+    }
+
+    const agent = new SteeringAgent();
+    const room = createRoom(agent);
+
+    await room.sendSteeringMessage("Keep going");
+
+    expect(agent.seen).toEqual(["Keep going"]);
+  });
+
   it("publishes run_failed to current subscribers when an agent run rejects", async () => {
     class RejectingAgent extends TestAgent {
       protected override async runImpl(): Promise<void> {

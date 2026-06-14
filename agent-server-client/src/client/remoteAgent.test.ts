@@ -208,6 +208,51 @@ describe("RemoteAgent", () => {
     expect(events).toContainEqual(expect.objectContaining({ type: "acp_connection_error" }));
   });
 
+  it("sends cancel and send-now messages over websocket", async () => {
+    vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
+    const agent = new RemoteAgent({ session });
+
+    void agent.connect();
+    const socket = websocketMock.MockWebSocket.instances[0]!;
+    socket.emitOpen();
+    await Promise.resolve();
+
+    await agent.cancel();
+    expect(JSON.parse(socket.sent[0]!)).toEqual({
+      jsonrpc: "2.0",
+      method: "session/cancel",
+      params: { sessionId: "s1" },
+    });
+
+    const sendNowPromise = agent.sendSteeringMessage("Please keep this in mind");
+    await waitForCondition(() => expect(socket.sent).toHaveLength(2));
+    const sendNow = JSON.parse(socket.sent[1]!);
+    expect(sendNow).toEqual({
+      jsonrpc: "2.0",
+      id: "rpc-1",
+      method: "_rookery/steering_prompt",
+      params: { sessionId: "s1", text: "Please keep this in mind" },
+    });
+    socket.emitMessage({ jsonrpc: "2.0", id: "rpc-1", result: { accepted: true } });
+    await sendNowPromise;
+  });
+
+  it("treats cancelled runs as clean run completions", async () => {
+    vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
+    const events: AcpClientEvent[] = [];
+    const agent = new RemoteAgent({ session, onAcpEvent: (event) => events.push(event) });
+
+    const runPromise = agent.run("hello");
+    const socket = websocketMock.MockWebSocket.instances[0]!;
+    socket.emitOpen();
+    await waitForCondition(() => expect(socket.sent).toHaveLength(1));
+    socket.emitMessage({ jsonrpc: "2.0", id: "prompt-1", result: { stopReason: "cancelled" } });
+
+    await runPromise;
+    expect(events).toContainEqual({ type: "acp_run_completed", stopReason: "cancelled" });
+    expect(events).not.toContainEqual({ type: "acp_run_failed", error: "Run cancelled" });
+  });
+
   it("surfaces non-end-turn stop reasons", async () => {
     vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
     const events: AcpClientEvent[] = [];

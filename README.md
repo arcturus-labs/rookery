@@ -1,4 +1,4 @@
-# Agent Station
+# Rook
 
 Monorepo for local Pi agents, an [Agent Client Protocol (ACP)](https://agentclientprotocol.com/get-started/introduction)-oriented chat runtime, and host clients/providers.
 
@@ -8,7 +8,7 @@ ACP standardizes JSON-RPC between editors/clients and coding agents. Here, the b
 
 | Package | Role |
 |---------|------|
-| [agent-server-client](agent-server-client/) | Main app at `:3000`: React UI, Fastify API, session/runtime orchestration, environment manager, ACP-backed Pi adapter, and ACP-native chat UI features (tools, permissions, plans, usage, modes/config) |
+| [agent-server-client](agent-server-client/) | Main app at `:3000`: React UI, Fastify API, session/runtime orchestration, environment manager, ACP-backed Pi adapter, and ACP-native chat UI features (tools, permissions, plans, usage, modes/config, auto-queued messages, send-now steering, stop controls) |
 | [agent-station-chrome-extension](agent-station-chrome-extension/) | Chrome MV3 environment provider: recognizes supported sites, opens the localhost pane, and directly registers environment availability with Agent Station |
 | [agent-station-obsidian-extension](agent-station-obsidian-extension/) | Obsidian sidebar host for the `agent-server-client` app |
 | [agent-station-menu-bar-app-mac](agent-station-menu-bar-app-mac/) | Native SwiftUI macOS menu bar client with the full Agent Station feature set (agents, sessions, streaming chat, environment approvals) talking REST + ACP JSON-RPC to `:3000`; doubles as an environment provider that registers `app:<slug>` environments based on which Mac app is frontmost |

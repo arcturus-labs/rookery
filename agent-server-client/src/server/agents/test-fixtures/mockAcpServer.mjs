@@ -5,6 +5,10 @@ function write(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 let buffer = '';
 process.stdin.on('data', (chunk) => {
   buffer += chunk.toString('utf8');
@@ -42,6 +46,24 @@ process.stdin.on('data', (chunk) => {
     if (message.method === 'session/prompt') {
       if (message.params.prompt[0].text === 'boom') {
         write({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: 'boom' } });
+        continue;
+      }
+      if (message.params.prompt[0].text === 'slow') {
+        void (async () => {
+          await delay(40);
+          write({
+            jsonrpc: '2.0',
+            method: 'session/update',
+            params: {
+              sessionId: message.params.sessionId,
+              update: {
+                sessionUpdate: 'agent_message_chunk',
+                content: { type: 'text', text: 'echo:slow' },
+              },
+            },
+          });
+          write({ jsonrpc: '2.0', id: message.id, result: { stopReason: 'end_turn' } });
+        })();
         continue;
       }
       write({

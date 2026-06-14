@@ -10,6 +10,12 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
+type PendingSteeringMessage = {
+  text: string;
+  resolve: () => void;
+  reject: (error: Error) => void;
+};
+
 export interface BaseAgentOptions {
   command: string;
   args?: string[];
@@ -62,6 +68,10 @@ export class BaseAgent {
   protected sessionIdValue?: string;
   private suppressUserMessageText?: string;
   private isReplayingSessionLoad = false;
+  private workflowActive = false;
+  private pendingSteeringMessages: PendingSteeringMessage[] = [];
+  private lastStopReasonValue: string | null = null;
+  private runQueue: Promise<void> = Promise.resolve();
 
   constructor(options: BaseAgentOptions, restartMetadata?: AgentRestartMetadata) {
     this.options = options;
@@ -90,8 +100,16 @@ export class BaseAgent {
     return this.sessionIdValue;
   }
 
+  get lastStopReason(): string | null {
+    return this.lastStopReasonValue;
+  }
+
   protected get agentName(): string {
     return this.options.agentName ?? this.constructor.name;
+  }
+
+  protected get hasActiveWorkflow(): boolean {
+    return this.workflowActive;
   }
 
   protected createSessionRecord(restart: AgentRestartMetadata): AgentSessionRecord {
@@ -99,22 +117,37 @@ export class BaseAgent {
   }
 
   async run(userMessage: string): Promise<void> {
-    let rejectThisRun: (error: Error) => void = () => undefined;
-    const stopped = new Promise<never>((_, reject) => {
-      rejectThisRun = reject;
-      this.activeRunReject = reject;
-    });
+    const runTask = async () => {
+      let rejectThisRun: (error: Error) => void = () => undefined;
+      const stopped = new Promise<never>((_, reject) => {
+        rejectThisRun = reject;
+        this.activeRunReject = reject;
+      });
 
-    const running = (async () => {
-      await this.ensureStarted();
-      await this.runImpl(userMessage);
-    })();
+      const running = (async () => {
+        await this.ensureStarted();
+        this.lastStopReasonValue = null;
+        this.workflowActive = true;
+        try {
+          await this.runImpl(userMessage);
+        } catch (error) {
+          this.rejectPendingSteeringMessages(error);
+          throw error;
+        } finally {
+          this.workflowActive = false;
+        }
+      })();
 
-    try {
-      await Promise.race([running, stopped]);
-    } finally {
-      if (this.activeRunReject === rejectThisRun) this.activeRunReject = undefined;
-    }
+      try {
+        await Promise.race([running, stopped]);
+      } finally {
+        if (this.activeRunReject === rejectThisRun) this.activeRunReject = undefined;
+      }
+    };
+
+    const pending = this.runQueue.then(runTask, runTask);
+    this.runQueue = pending.then(() => undefined, () => undefined);
+    await pending;
   }
 
   async ensureStarted(): Promise<void> {
@@ -132,8 +165,10 @@ export class BaseAgent {
   }
 
   async stop(): Promise<void> {
-    this.activeRunReject?.(new Error(`${this.agentName} stopped.`));
+    const error = new Error(`${this.agentName} stopped.`);
+    this.activeRunReject?.(error);
     this.activeRunReject = undefined;
+    this.rejectPendingSteeringMessages(error);
     await this.stopImpl();
   }
 
@@ -150,6 +185,21 @@ export class BaseAgent {
     } catch {
       // Best-effort cancellation.
     }
+  }
+
+  async sendSteeringMessage(userMessage: string): Promise<void> {
+    await this.ensureStarted();
+    const trimmed = userMessage.trim();
+    if (!trimmed) return;
+
+    if (this.workflowActive) {
+      await new Promise<void>((resolve, reject) => {
+        this.pendingSteeringMessages.push({ text: trimmed, resolve, reject });
+      });
+      return;
+    }
+
+    await this.run(trimmed);
   }
 
   async setMode(modeId: string): Promise<unknown> {
@@ -215,23 +265,59 @@ export class BaseAgent {
   }
 
   protected async runImpl(userMessage: string): Promise<void> {
+    const initialStopReason = await this.executePromptTurn(userMessage);
+    if (initialStopReason === "cancelled") {
+      this.lastStopReasonValue = "cancelled";
+      this.rejectPendingSteeringMessages(new Error("ACP prompt was cancelled."));
+      this.emitAcpUpdate({ sessionUpdate: "_rookery_run_completed", stopReason: "cancelled" });
+      return;
+    }
+
+    while (this.pendingSteeringMessages.length > 0) {
+      const steering = this.pendingSteeringMessages.shift();
+      if (!steering) continue;
+      try {
+        const stopReason = await this.executePromptTurn(this.formatSteeringMessage(steering.text));
+        if (stopReason === "cancelled") {
+          const error = new Error("ACP prompt was cancelled while applying a send-now message.");
+          this.lastStopReasonValue = "cancelled";
+          steering.reject(error);
+          this.rejectPendingSteeringMessages(error);
+          this.emitAcpUpdate({ sessionUpdate: "_rookery_run_completed", stopReason: "cancelled" });
+          return;
+        }
+        steering.resolve();
+      } catch (error) {
+        steering.reject(error instanceof Error ? error : new Error(String(error)));
+        this.rejectPendingSteeringMessages(error);
+        throw error;
+      }
+    }
+
+    this.lastStopReasonValue = initialStopReason;
+    this.emitAcpUpdate({ sessionUpdate: "_rookery_run_completed", stopReason: initialStopReason });
+  }
+
+  protected formatSteeringMessage(userMessage: string): string {
+    return userMessage;
+  }
+
+  protected async executePromptTurn(userMessage: string): Promise<string> {
     if (!this.sessionIdValue) throw new Error("ACP agent session is not initialized.");
 
-    this.suppressUserMessageText = userMessage;
-    this.emitAcpUpdate({ sessionUpdate: "user_message_chunk", content: { type: "text", text: userMessage } });
+    this.emitUserMessageChunk(userMessage);
 
     const result = await this.sendRequest("session/prompt", {
       sessionId: this.sessionIdValue,
       prompt: [{ type: "text", text: userMessage }],
     });
 
-    const stopReason = isObject(result) && typeof result.stopReason === "string" ? result.stopReason : "end_turn";
-    if (stopReason === "cancelled") {
-      this.emitAcpUpdate({ sessionUpdate: "_rookery_run_failed", error: "ACP prompt was cancelled." });
-      throw new Error("ACP prompt was cancelled.");
-    }
+    return isObject(result) && typeof result.stopReason === "string" ? result.stopReason : "end_turn";
+  }
 
-    this.emitAcpUpdate({ sessionUpdate: "_rookery_run_completed" });
+  protected emitUserMessageChunk(userMessage: string): void {
+    this.suppressUserMessageText = userMessage;
+    this.emitAcpUpdate({ sessionUpdate: "user_message_chunk", content: { type: "text", text: userMessage } });
   }
 
   protected async stopImpl(): Promise<void> {
@@ -250,6 +336,13 @@ export class BaseAgent {
     this.process = null;
     this.startPromise = null;
     this.pendingRequests.clear();
+  }
+
+  protected rejectPendingSteeringMessages(error: unknown): void {
+    const normalized = error instanceof Error ? error : new Error(String(error));
+    while (this.pendingSteeringMessages.length > 0) {
+      this.pendingSteeringMessages.shift()?.reject(normalized);
+    }
   }
 
   protected getSessionCwd(): string {
