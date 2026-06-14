@@ -13,12 +13,14 @@ export type AcpClientEvent =
   | AcpClientAgentThoughtChunk
   | AcpClientToolCallStarted
   | AcpClientToolCallUpdate
+  | AcpClientToolInputDelta
   | AcpClientPermissionRequest
   | AcpClientPlanUpdate
   | AcpClientUsageUpdate
   | AcpClientModesState
   | AcpClientCurrentModeUpdate
   | AcpClientConfigOptionUpdate
+  | AcpClientFinalizeBlocks
   | AcpClientRunCompleted
   | AcpClientRunFailed
   | AcpClientConnectionError
@@ -72,6 +74,12 @@ export interface AcpClientToolCallUpdate {
   output?: string;
 }
 
+export interface AcpClientToolInputDelta {
+  type: "acp_tool_input_delta";
+  toolCallId: string;
+  delta: string;
+}
+
 export interface AcpClientPermissionRequest {
   type: "acp_permission_request";
   requestId: string;
@@ -105,6 +113,10 @@ export interface AcpClientCurrentModeUpdate {
 export interface AcpClientConfigOptionUpdate {
   type: "acp_config_option_update";
   configOptions: AcpConfigOption[];
+}
+
+export interface AcpClientFinalizeBlocks {
+  type: "acp_finalize_blocks";
 }
 
 export interface AcpClientRunCompleted {

@@ -186,7 +186,6 @@ export class BaseAgent {
     try {
       const result = await this.sendRequestWithTimeout("session/load", this.buildSessionLoadParams(sessionId, cwd), this.options.startupTimeoutMs ?? 15_000);
       this.emitInitialSessionState(result as AcpSessionNewResult);
-      await this.afterSessionStarted(result);
     } finally {
       this.isReplayingSessionLoad = false;
     }
@@ -200,7 +199,6 @@ export class BaseAgent {
     if (!sessionId) throw new Error("ACP session/new did not return a sessionId.");
     this.sessionIdValue = sessionId;
     this.emitInitialSessionState(result as AcpSessionNewResult);
-    await this.afterSessionStarted(result);
 
     return this.createSessionRecord({
       sessionId,
@@ -432,10 +430,6 @@ export class BaseAgent {
       return;
     }
     this.bufferedAcpUpdates.push(notification);
-  }
-
-  protected async afterSessionStarted(_result: unknown): Promise<void> {
-    // Subclasses can synthesize additional ACP state from backend-specific session metadata.
   }
 
   protected emitInitialSessionState(result: AcpSessionNewResult): void {

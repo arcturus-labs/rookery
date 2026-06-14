@@ -223,6 +223,67 @@ describe("RemoteAgent", () => {
     expect(events).toContainEqual({ type: "acp_run_completed", stopReason: "refusal" });
   });
 
+  it("extracts tool raw input/output and finalize-block events", async () => {
+    vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
+    const events: AcpClientEvent[] = [];
+    const agent = new RemoteAgent({ session, onAcpEvent: (event) => events.push(event) });
+
+    void agent.connect();
+    const socket = websocketMock.MockWebSocket.instances[0]!;
+    socket.emitOpen();
+    await Promise.resolve();
+
+    socket.emitMessage({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        sessionId: "s1",
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "tool-1",
+          title: "Read File",
+          kind: "read",
+          status: "pending",
+          rawInput: { path: "README.md" },
+        },
+      },
+    });
+    socket.emitMessage({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        sessionId: "s1",
+        update: {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "tool-1",
+          status: "completed",
+          rawOutput: { content: "# Title" },
+        },
+      },
+    });
+    socket.emitMessage({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { sessionId: "s1", update: { sessionUpdate: "_rookery_assistant_message_completed" } },
+    });
+
+    expect(events).toContainEqual({
+      type: "acp_tool_call_started",
+      toolCallId: "tool-1",
+      title: "Read File",
+      kind: "read",
+      status: "pending",
+      rawInput: '{\n  "path": "README.md"\n}',
+    });
+    expect(events).toContainEqual({
+      type: "acp_tool_call_update",
+      toolCallId: "tool-1",
+      status: "completed",
+      output: "# Title",
+    });
+    expect(events).toContainEqual({ type: "acp_finalize_blocks" });
+  });
+
   it("surfaces permission requests and mode/config updates", async () => {
     vi.stubGlobal("WebSocket", websocketMock.MockWebSocket);
     const events: AcpClientEvent[] = [];

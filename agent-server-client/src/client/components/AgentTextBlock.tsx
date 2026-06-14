@@ -11,14 +11,14 @@ interface Props {
 export function AgentTextBlock({ block, onOpenBlock }: Props) {
   return (
     <div className="cwa-agent-text" onClick={createBlockClickHandler(block, onOpenBlock)} title="Click to expand">
-      <div className="cwa-agent-text__content">
+      <div className={`cwa-agent-text__content${block.isStreaming ? " cwa-agent-text__content--streaming" : ""}`}>
         <Markdown
           remarkPlugins={[remarkGfm]}
           components={{
             a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
           }}
         >
-          {block.text}
+          {block.text.trimEnd()}
         </Markdown>
         {block.isStreaming && <span className="cwa-cursor" />}
       </div>

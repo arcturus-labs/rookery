@@ -109,6 +109,26 @@ function textFromContentItems(content: unknown): string {
     .join("\n");
 }
 
+function isEmptyObject(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value) && Object.keys(value as object).length === 0;
+}
+
+function stringifyToolPayload(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value === undefined) return undefined;
+  if (isEmptyObject(value)) return undefined;
+  // rawOutput / rawInput often carry a `content` key whose value is a plain
+  // string (Cursor, Pi, Claude). Unwrap it so the UI shows readable text.
+  if (typeof value === "object" && value !== null && "content" in value && typeof (value as Record<string, unknown>).content === "string") {
+    return (value as Record<string, unknown>).content as string;
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 function parseModesState(update: AcpSessionUpdate): AcpSessionModeState | null {
   if (update.sessionUpdate !== "_rookery_modes_state") return null;
   const modes = (update as { modes?: unknown }).modes;
@@ -371,23 +391,36 @@ export class RemoteAgent {
         break;
       }
       case "tool_call": {
-        const tc = update as { toolCallId: string; title: string; kind?: string; status?: string; _meta?: unknown };
+        const tc = update as { toolCallId: string; title: string; kind?: string; status?: string; rawInput?: unknown; _meta?: unknown };
         const rookery = getRookeryMeta(tc._meta);
+        const rawInput = stringifyToolPayload(tc.rawInput) ?? stringifyToolPayload(rookery?.rawInput);
         this.onAcpEvent?.({
           type: "acp_tool_call_started",
           toolCallId: tc.toolCallId,
           title: tc.title,
           kind: tc.kind ?? "other",
           status: tc.status ?? "pending",
-          ...(typeof rookery?.rawInput === "string" ? { rawInput: rookery.rawInput } : {}),
+          ...(rawInput ? { rawInput } : {}),
         });
         break;
       }
       case "tool_call_update": {
-        const tcu = update as { toolCallId: string; status: string; content?: unknown; _meta?: unknown };
+        const tcu = update as { toolCallId: string; status: string; content?: unknown; rawInput?: unknown; rawOutput?: unknown; _meta?: unknown };
         const rookery = getRookeryMeta(tcu._meta);
         const toolName = typeof rookery?.toolName === "string" ? rookery.toolName : undefined;
-        const output = textFromContentItems(tcu.content) || undefined;
+
+        // Agents (Pi, Claude, Cursor) stream tool input incrementally via
+        // rawInput in tool_call_update, not tool_call.
+        const inputText = stringifyToolPayload(tcu.rawInput);
+        if (inputText !== undefined && inputText !== "{}" && inputText.length > 0) {
+          this.onAcpEvent?.({
+            type: "acp_tool_input_delta",
+            toolCallId: tcu.toolCallId,
+            delta: inputText,
+          });
+        }
+
+        const output = textFromContentItems(tcu.content) || stringifyToolPayload(tcu.rawOutput) || undefined;
         const validStatuses = ["pending", "in_progress", "completed", "failed", "cancelled"] as const;
         const mappedStatus = (validStatuses as readonly string[]).includes(tcu.status)
           ? tcu.status as "pending" | "in_progress" | "completed" | "failed" | "cancelled"
@@ -477,7 +510,10 @@ export class RemoteAgent {
         break;
       case "_rookery_run_completed":
       case "_rookery_assistant_message_started":
+        break;
       case "_rookery_assistant_message_completed":
+        this.onAcpEvent?.({ type: "acp_finalize_blocks" });
+        break;
       case "_rookery_assistant_message_error":
       case "_rookery_protocol_error":
       default:

@@ -235,6 +235,10 @@
   word-break: break-word;
 }
 
+.cwa-agent-text__content--streaming > :last-child {
+  display: inline;
+}
+
 /* =========================================================
    Thinking block — subdued, fixed scrollable height
    ========================================================= */
@@ -260,8 +264,16 @@
 .cwa-thinking__content {
   font-style: italic;
   font-size: 0.9em;
-  height: 4.5em;
+  max-height: 4.5em;
   overflow-y: auto;
   white-space: normal;
   word-break: break-word;
+}
+
+.cwa-thinking__content p {
+  margin: 0 !important;
+}
+
+.cwa-thinking__content--streaming > :last-child {
+  display: inline;
 }

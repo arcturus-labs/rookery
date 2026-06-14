@@ -113,7 +113,7 @@ describe("ChatPanel", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
-  it("rebuilds prior tool activity from replayed session events", () => {
+  it("rebuilds prior tool activity from replayed session events", async () => {
     render(
       <ChatPanel
         agentBackend="PiAgent"
@@ -129,8 +129,11 @@ describe("ChatPanel", () => {
     expect(screen.getByText("search_docs")).toBeInTheDocument();
     expect(screen.getByText("Completed")).toBeInTheDocument();
     expect(screen.getByText("Ready")).toBeInTheDocument();
-  });
 
+    await userEvent.click(screen.getByText("search_docs"));
+    expect(screen.getByText('{"q":"agent"}')).toBeInTheDocument();
+    expect(screen.getByText("Found docs")).toBeInTheDocument();
+  });
   it("ignores replayed environment session events without breaking chat replay", () => {
     render(
       <ChatPanel
@@ -242,6 +245,22 @@ describe("ChatPanel", () => {
 
     expect(screen.getByLabelText("Mode")).toBeInTheDocument();
     expect(screen.getByLabelText("Model")).toBeInTheDocument();
+  });
+
+  it("finalizes replayed thinking/message blocks once the restored assistant message is complete", async () => {
+    render(
+      <ChatPanel
+        agentBackend="PiAgent"
+        initialSession={{ id: "s1", agent: "PiAgent", createdAt: "now", restart: {} }}
+        replayEvents={[
+          { type: "acp_agent_thought_chunk", text: "Reading the README.\n" },
+          { type: "acp_agent_message_chunk", text: "Done." },
+          { type: "acp_finalize_blocks" },
+        ]}
+      />,
+    );
+
+    expect(document.querySelectorAll(".cwa-cursor")).toHaveLength(0);
   });
 
   it("responds to permission requests and renders mode/config controls", async () => {

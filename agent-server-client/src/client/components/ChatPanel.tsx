@@ -66,6 +66,7 @@ type Action =
   | { type: "MODES_UPDATED"; modes: ModesState }
   | { type: "CURRENT_MODE_UPDATED"; modeId: string }
   | { type: "CONFIG_OPTIONS_UPDATED"; configOptions: AcpConfigOption[] }
+  | { type: "FINALIZE_BLOCKS" }
   | { type: "RUN_COMPLETED"; stopReason: string }
   | { type: "RUN_FAILED"; error: string; source?: "run" | "connection" | "protocol" };
 
@@ -78,6 +79,10 @@ function finalizeStreamingBlocks(blocks: Block[]): Block[] {
     if (b.type === "text" || b.type === "thinking") return b.isStreaming ? { ...b, isStreaming: false } : b;
     return b;
   });
+}
+
+function finalizeBeforeAppending(blocks: Block[]): Block[] {
+  return finalizeStreamingBlocks(blocks);
 }
 
 function updateLastToolBlock(blocks: Block[], toolCallId: string, update: (block: ToolBlock) => ToolBlock): Block[] {
@@ -112,29 +117,33 @@ function reducer(state: State, action: Action): State {
 
     case "USER_MESSAGE": {
       const block: UserMessageBlock = { type: "text", role: "user", text: action.text, isStreaming: false };
-      return { ...state, blocks: [...finalizeStreamingBlocks(state.blocks), block] };
+      return { ...state, blocks: [...finalizeBeforeAppending(state.blocks), block] };
     }
 
     case "AGENT_MESSAGE_CHUNK": {
-      const blocks = [...state.blocks];
-      const last = blocks[blocks.length - 1];
+      const last = state.blocks[state.blocks.length - 1];
       if (last && last.type === "text" && last.role === "assistant" && last.isStreaming) {
+        const blocks = [...state.blocks];
         blocks[blocks.length - 1] = { ...last, text: last.text + action.text };
-      } else {
-        blocks.push({ type: "text", role: "assistant", text: action.text, isStreaming: true } as AgentTextBlock);
+        return { ...state, blocks };
       }
-      return { ...state, blocks };
+      return {
+        ...state,
+        blocks: [...finalizeBeforeAppending(state.blocks), { type: "text", role: "assistant", text: action.text, isStreaming: true } as AgentTextBlock],
+      };
     }
 
     case "AGENT_THOUGHT_CHUNK": {
-      const blocks = [...state.blocks];
-      const last = blocks[blocks.length - 1];
+      const last = state.blocks[state.blocks.length - 1];
       if (last && last.type === "thinking" && last.isStreaming) {
-        blocks[blocks.length - 1] = { ...last, thinking: last.thinking + action.text };
-      } else {
-        blocks.push({ type: "thinking", thinking: action.text, isStreaming: true } as ThinkingBlock);
+        const blocks = [...state.blocks];
+        blocks[blocks.length - 1] = { ...last, thinking: `${last.thinking}${action.text}` };
+        return { ...state, blocks };
       }
-      return { ...state, blocks };
+      return {
+        ...state,
+        blocks: [...finalizeBeforeAppending(state.blocks), { type: "thinking", thinking: action.text, isStreaming: true } as ThinkingBlock],
+      };
     }
 
     case "TOOL_CALL_STARTED": {
@@ -144,14 +153,14 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         blocks: [
-          ...state.blocks,
+          ...finalizeBeforeAppending(state.blocks),
           {
             type: "toolBlock",
             id: action.toolCallId,
             name: action.toolName,
-            status: "input_streaming",
+            status: action.rawInput ? "input_streaming" : "ready",
             arguments: action.rawInput ?? "",
-            argumentsStreaming: !!action.rawInput,
+            argumentsStreaming: false,
             result: null,
             isError: false,
           },
@@ -164,20 +173,25 @@ function reducer(state: State, action: Action): State {
       const idx = blocks.findLastIndex((b) => b.type === "toolBlock" && b.id === action.toolCallId);
       if (idx !== -1) {
         const existing = blocks[idx] as ToolBlock;
-        blocks[idx] = { ...existing, status: "input_streaming", arguments: existing.arguments + action.delta };
-      } else {
-        blocks.push({
-          type: "toolBlock",
-          id: action.toolCallId,
-          name: action.toolName ?? "tool",
-          status: "input_streaming",
-          arguments: action.delta,
-          argumentsStreaming: true,
-          result: null,
-          isError: false,
-        });
+        blocks[idx] = { ...existing, status: "input_streaming", arguments: action.delta, argumentsStreaming: true };
+        return { ...state, blocks };
       }
-      return { ...state, blocks };
+      return {
+        ...state,
+        blocks: [
+          ...finalizeBeforeAppending(state.blocks),
+          {
+            type: "toolBlock",
+            id: action.toolCallId,
+            name: action.toolName ?? "tool",
+            status: "input_streaming",
+            arguments: action.delta,
+            argumentsStreaming: true,
+            result: null,
+            isError: false,
+          },
+        ],
+      };
     }
 
     case "TOOL_RUNNING":
@@ -192,7 +206,7 @@ function reducer(state: State, action: Action): State {
         blocks: updateLastToolBlock(state.blocks, action.toolCallId, (b) => ({
           ...b,
           status: "running",
-          result: action.delta,
+          result: `${b.result ?? ""}${action.delta}`,
           isError: false,
           argumentsStreaming: false,
         })),
@@ -262,6 +276,12 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         configOptions: action.configOptions,
+      };
+
+    case "FINALIZE_BLOCKS":
+      return {
+        ...state,
+        blocks: finalizeStreamingBlocks(state.blocks),
       };
 
     case "RUN_COMPLETED":
@@ -393,6 +413,9 @@ export function ChatPanel({
         });
         break;
       }
+      case "acp_tool_input_delta":
+        dispatch({ type: "TOOL_INPUT_DELTA", toolCallId: event.toolCallId, delta: event.delta });
+        break;
       case "acp_tool_call_update": {
         const tc = event;
         switch (tc.status) {
@@ -453,6 +476,9 @@ export function ChatPanel({
       case "acp_config_option_update":
         dispatch({ type: "CONFIG_OPTIONS_UPDATED", configOptions: event.configOptions });
         break;
+      case "acp_finalize_blocks":
+        dispatch({ type: "FINALIZE_BLOCKS" });
+        break;
       case "acp_run_completed":
         handleRunCompletion(event.stopReason);
         break;
@@ -503,6 +529,7 @@ export function ChatPanel({
     replayAppliedRef.current = true;
     if (replayEvents.length === 0) return;
     for (const event of replayEvents) applyAcpEvent(event);
+    dispatch({ type: "FINALIZE_BLOCKS" });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

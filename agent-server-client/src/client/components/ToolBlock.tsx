@@ -37,9 +37,11 @@ export function ToolBlock({ block, forceExpanded = false, onOpenBlock }: Props) 
 
       {expanded && (
         <div className="cwa-tool-block__body">
-          <div className="cwa-tool-block__call">
-            <pre className="cwa-tool-block__args">{block.arguments}</pre>
-          </div>
+          {block.arguments.trim().length > 0 && (
+            <div className="cwa-tool-block__call">
+              <pre className="cwa-tool-block__args">{block.arguments}</pre>
+            </div>
+          )}
           <div className={`cwa-tool-block__result${block.isError ? " cwa-tool-block__result--error" : ""}`}>
             <div className="cwa-tool-block__result-label">Result</div>
             <pre className="cwa-tool-block__result-content">
