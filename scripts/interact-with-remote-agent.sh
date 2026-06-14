@@ -6,7 +6,9 @@
 #
 # Setup once: cd agent-server-client && npm install
 #
-# Common flags: --agent PiAgent | MyPiOpenAiAgent  --omit-deltas  --only <types>  --omit <types>
+# Common flags: --agent PiAgent | MyPiOpenAiAgent | PirateClaudeAgent | CursorAutoAgent
+#               --list-agents  --omit-deltas  --only <types>  --omit <types>
+#               --steer '<text>'  --steer-after-ms 1500  --permission allow-once
 #               --session '<json>'  --restart  --replay  --no-session  --no-replay  --raw-acp  --help
 #
 # SessionEvent types (--omit-deltas hides text_delta, thinking_delta, tool_input_delta, tool_output_delta):

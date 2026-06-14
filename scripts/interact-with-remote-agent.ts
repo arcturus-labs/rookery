@@ -22,8 +22,11 @@
  *   --omit-deltas          Hide message/tool delta ACP client events.
  *   --omit <types>         Comma-separated ACP client event types to hide (flag may repeat).
  *   --only <types>         Whitelist: only print these ACP client event types.
+ *   --mode <id>            Set ACP session mode before prompting.
  *   --steer <text>         Send `_rookery/steering_prompt` during the run.
  *   --steer-after-ms <n>   Delay before sending steering prompt (default: 1500).
+ *   --permission <mode>    Auto-respond to permission requests: allow-once | allow-always | reject-once | cancel.
+ *   --cancel-after-ms <n>  Send ACP session/cancel after n ms.
  *   --no-session           Do not print the session record line.
  *   --no-replay            Do not print replay lines even when --replay is set.
  *   --raw-acp              Print raw ACP JSON-RPC traffic instead of translated ACP client events.
@@ -141,8 +144,11 @@ Options:
   --omit-deltas          Hide message/tool delta ACP client events
   --omit <types>         Comma-separated event types to hide (repeatable)
   --only <types>         Comma-separated event types to show (hides all others)
+  --mode <id>            Set ACP session mode before prompting
   --steer <text>         Send _rookery/steering_prompt during the run
   --steer-after-ms <n>   Delay before sending steering prompt (default: 1500)
+  --permission <mode>    Auto-respond to permission requests: allow-once | allow-always | reject-once | cancel
+  --cancel-after-ms <n>  Send ACP session/cancel after n ms
   --no-session           Do not print the session record line
   --no-replay            Do not print replay lines (even with --replay)
   --raw-acp              Print raw ACP JSON-RPC traffic
@@ -154,7 +160,7 @@ Output is JSONL on stdout. Examples:
   ./scripts/interact-with-remote-agent.sh --list-agents
   ./scripts/interact-with-remote-agent.sh --agent PiAgent --omit-deltas "hello"
   ./scripts/interact-with-remote-agent.sh --raw-acp --agent MyPiOpenAiAgent --steer "Also include banana." "Run sleep 5 then report back"
-  ./scripts/interact-with-remote-agent.sh --agent PirateClaudeAgent --steer "Also include banana." --steer-after-ms 2000 "Run sleep 5 then report back"`);
+  ./scripts/interact-with-remote-agent.sh --agent PirateClaudeAgent --mode bypassPermissions --steer "Also include banana." --steer-after-ms 2000 --cancel-after-ms 12000 "Run sleep 5 then report back"`);
   process.exit(2);
 }
 
@@ -168,6 +174,8 @@ function parseEventTypes(value: string): AcpClientEventType[] {
   return types as AcpClientEventType[];
 }
 
+type PermissionMode = "allow-once" | "allow-always" | "reject-once" | "cancel";
+
 function parseArgs(argv: string[]): {
   agent: string;
   session?: AgentSessionSummary;
@@ -177,8 +185,11 @@ function parseArgs(argv: string[]): {
   filter: EventFilter;
   rawAcp: boolean;
   listAgents: boolean;
+  modeId?: string;
   steerText?: string;
   steerAfterMs: number;
+  cancelAfterMs?: number;
+  permissionMode?: PermissionMode;
 } {
   let agent = "MyPiOpenAiAgent";
   let session: AgentSessionSummary | undefined;
@@ -191,8 +202,11 @@ function parseArgs(argv: string[]): {
   let showReplay = true;
   let rawAcp = false;
   let listAgents = false;
+  let modeId: string | undefined;
   let steerText: string | undefined;
   let steerAfterMs = 1500;
+  let cancelAfterMs: number | undefined;
+  let permissionMode: PermissionMode | undefined;
   const promptParts: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
@@ -227,6 +241,10 @@ function parseArgs(argv: string[]): {
       rawAcp = true;
     } else if (arg === "--list-agents") {
       listAgents = true;
+    } else if (arg === "--mode") {
+      const value = argv[++i];
+      if (!value) usage();
+      modeId = value;
     } else if (arg === "--steer") {
       const value = argv[++i];
       if (!value) usage();
@@ -235,6 +253,14 @@ function parseArgs(argv: string[]): {
       const value = Number(argv[++i]);
       if (!Number.isFinite(value) || value < 0) usage();
       steerAfterMs = value;
+    } else if (arg === "--permission") {
+      const value = argv[++i] as PermissionMode | undefined;
+      if (!value || !["allow-once", "allow-always", "reject-once", "cancel"].includes(value)) usage();
+      permissionMode = value;
+    } else if (arg === "--cancel-after-ms") {
+      const value = Number(argv[++i]);
+      if (!Number.isFinite(value) || value < 0) usage();
+      cancelAfterMs = value;
     } else if (arg === "--help" || arg === "-h") {
       usage();
     } else {
@@ -258,8 +284,11 @@ function parseArgs(argv: string[]): {
     filter: { only, omit, showSession, showReplay },
     rawAcp,
     listAgents,
+    ...(modeId ? { modeId } : {}),
     ...(steerText ? { steerText } : {}),
     steerAfterMs,
+    ...(cancelAfterMs !== undefined ? { cancelAfterMs } : {}),
+    ...(permissionMode ? { permissionMode } : {}),
   };
 }
 
@@ -282,8 +311,11 @@ async function printRawAcpSession(baseUrl: string, options: {
   replay: boolean;
   prompt: string;
   filter: EventFilter;
+  modeId?: string;
   steerText?: string;
   steerAfterMs: number;
+  cancelAfterMs?: number;
+  permissionMode?: PermissionMode;
 }): Promise<void> {
   const startResponse = await fetch(`${baseUrl}/api/agent/start`, {
     method: "POST",
@@ -311,15 +343,44 @@ async function printRawAcpSession(baseUrl: string, options: {
     ws.addEventListener("error", () => reject(new Error("WebSocket failed to open")), { once: true });
   });
 
+  let modeDone = options.modeId ? false : true;
   let promptDone = false;
   let steerDone = options.steerText ? false : true;
   const done = new Promise<void>((resolve, reject) => {
     const maybeResolve = () => {
-      if (promptDone && steerDone) resolve();
+      if (modeDone && promptDone && steerDone) resolve();
     };
     ws.addEventListener("message", (event) => {
       const message = JSON.parse(String(event.data)) as JsonRpcMessage;
       console.log(JSON.stringify({ type: "acp_message", event: message }));
+      if ("method" in message && message.method === "session/request_permission" && options.permissionMode) {
+        const requestId = "id" in message ? message.id : undefined;
+        if (requestId !== undefined) {
+          const optionId = options.permissionMode === "allow-once"
+            ? "allow-once"
+            : options.permissionMode === "allow-always"
+              ? "allow-always"
+              : options.permissionMode === "reject-once"
+                ? "reject-once"
+                : undefined;
+          ws.send(JSON.stringify(optionId
+            ? { jsonrpc: "2.0", id: requestId, result: { outcome: { outcome: "selected", optionId } } }
+            : { jsonrpc: "2.0", id: requestId, result: { outcome: { outcome: "cancelled" } } }));
+        }
+      }
+      if ("id" in message && message.id === "mode-1" && (("result" in message) || ("error" in message))) {
+        if ("error" in message) reject(new Error(`set mode failed: ${message.error.message}`));
+        else {
+          modeDone = true;
+          maybeResolve();
+          ws.send(JSON.stringify({
+            jsonrpc: "2.0",
+            id: "prompt-1",
+            method: "session/prompt",
+            params: { sessionId: startResult.session.id, prompt: [{ type: "text", text: options.prompt }] },
+          }));
+        }
+      }
       if ("id" in message && message.id === "prompt-1" && (("result" in message) || ("error" in message))) {
         if ("error" in message) reject(new Error(message.error.message));
         else {
@@ -338,12 +399,21 @@ async function printRawAcpSession(baseUrl: string, options: {
     ws.addEventListener("close", () => resolve(), { once: true });
   });
 
-  ws.send(JSON.stringify({
-    jsonrpc: "2.0",
-    id: "prompt-1",
-    method: "session/prompt",
-    params: { sessionId: startResult.session.id, prompt: [{ type: "text", text: options.prompt }] },
-  }));
+  if (options.modeId) {
+    ws.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: "mode-1",
+      method: "session/set_mode",
+      params: { sessionId: startResult.session.id, modeId: options.modeId },
+    }));
+  } else {
+    ws.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: "prompt-1",
+      method: "session/prompt",
+      params: { sessionId: startResult.session.id, prompt: [{ type: "text", text: options.prompt }] },
+    }));
+  }
 
   if (options.steerText) {
     setTimeout(() => {
@@ -356,12 +426,22 @@ async function printRawAcpSession(baseUrl: string, options: {
     }, options.steerAfterMs);
   }
 
+  if (options.cancelAfterMs !== undefined) {
+    setTimeout(() => {
+      ws.send(JSON.stringify({
+        jsonrpc: "2.0",
+        method: "session/cancel",
+        params: { sessionId: startResult.session.id },
+      }));
+    }, options.cancelAfterMs);
+  }
+
   await done;
   ws.close();
 }
 
 async function main() {
-  const { agent, session, prompt, restart, replay, filter, rawAcp, listAgents, steerText, steerAfterMs } = parseArgs(process.argv.slice(2));
+  const { agent, session, prompt, restart, replay, filter, rawAcp, listAgents, modeId, steerText, steerAfterMs, cancelAfterMs, permissionMode } = parseArgs(process.argv.slice(2));
 
   const serverEntry = pathToFileURL(path.join(CLIENT_ROOT, "src/server/index.js")).href;
   const { buildServer } = await import(serverEntry);
@@ -382,13 +462,29 @@ async function main() {
     }
 
     if (rawAcp) {
-      await printRawAcpSession(baseUrl, { agent, session, restart, replay, prompt, filter, steerText, steerAfterMs });
+      await printRawAcpSession(baseUrl, { agent, session, restart, replay, prompt, filter, modeId, steerText, steerAfterMs, cancelAfterMs, permissionMode });
       return;
     }
 
-    const logSessionEvent = createEventLogger(filter);
+    let remoteAgent: RemoteAgent;
+    const logSessionEvent = (event: AcpClientEvent) => {
+      createEventLogger(filter)(event);
+      if (event.type === "acp_permission_request" && permissionMode && remoteAgent) {
+        const optionId = permissionMode === "allow-once"
+          ? "allow-once"
+          : permissionMode === "allow-always"
+            ? "allow-always"
+            : permissionMode === "reject-once"
+              ? "reject-once"
+              : undefined;
+        void remoteAgent.respondToPermissionRequest(
+          event.requestId,
+          optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },
+        );
+      }
+    };
 
-    const remoteAgent = new RemoteAgent({
+    remoteAgent = new RemoteAgent({
       backend: agent,
       session,
       startEndpoint: `${baseUrl}/api/agent/start`,
@@ -402,6 +498,8 @@ async function main() {
     if (filter.showSession) {
       console.log(JSON.stringify({ type: "session", event: startResult.session }));
     }
+    if (modeId) await remoteAgent.setMode(modeId);
+
     const runPromise = remoteAgent.run(prompt);
     const steeringPromise = steerText
       ? new Promise<void>((resolve, reject) => {
@@ -410,7 +508,14 @@ async function main() {
           }, steerAfterMs);
         })
       : Promise.resolve();
-    await Promise.all([runPromise, steeringPromise]);
+    const cancelPromise = cancelAfterMs !== undefined
+      ? new Promise<void>((resolve, reject) => {
+          setTimeout(() => {
+            remoteAgent.cancel().then(() => resolve()).catch(reject);
+          }, cancelAfterMs);
+        })
+      : Promise.resolve();
+    await Promise.all([runPromise, steeringPromise, cancelPromise]);
     remoteAgent.close();
   } finally {
     await app.close();
