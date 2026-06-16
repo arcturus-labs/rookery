@@ -307,27 +307,35 @@ final class AgentStationModel: ObservableObject {
     func openPanelWindow() {
         if let panelWindow {
             panelWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
             windowIsPinned = true
             return
         }
         let controller = NSHostingController(rootView: AgentStationMenuView(model: self))
-        controller.sizingOptions = [.preferredContentSize]
-        // A non-activating floating panel stays above other apps and is visible
-        // on every Space, so it can ride along as a companion while you work —
-        // and clicking into it (e.g. the chat composer) won't yank focus away
-        // from the app you're in.
-        let panel = NSPanel(contentViewController: controller)
-        // Explicit initial size so the panel can never come up 0×0 before the
-        // SwiftUI view reports its intrinsic size; preferredContentSize then
-        // tracks content (incl. the 372↔460 width on detail screens).
-        panel.setContentSize(NSSize(width: 372, height: 600))
-        panel.styleMask = [.titled, .closable, .fullSizeContentView, .nonactivatingPanel]
+        // Build the panel with its full style via the designated initializer.
+        // Mutating `styleMask` AFTER the `init(contentViewController:)`
+        // convenience initializer — and calling NSApp.activate while showing a
+        // .nonactivatingPanel — is what raised the uncaught exception during the
+        // CATransaction flush. A non-activating floating panel stays above other
+        // apps on every Space, and `becomesKeyOnlyIfNeeded` lets the chat
+        // composer take focus on click without yanking the frontmost app's.
+        //
+        // An explicit fixed, resizable size is used instead of
+        // sizingOptions=.preferredContentSize: in this NSPanel the
+        // content-size tracking resolves to 0×0 and the panel never shows. The
+        // detail width (460) avoids clipping the detail screens; the home
+        // screen (372) sits left-aligned within it. Chat scrolls internally.
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 640),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.contentViewController = controller
         panel.isFloatingPanel = true
+        panel.becomesKeyOnlyIfNeeded = true
         panel.level = .floating
         // .canJoinAllSpaces and .moveToActiveSpace are mutually exclusive —
         // setting both makes NSWindow throw in _validateCollectionBehavior:.
-        // A companion panel should be visible on every Space, so keep the former.
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
         panel.title = "Agent Station"
@@ -344,7 +352,6 @@ final class AgentStationModel: ObservableObject {
         panel.delegate = panelWindowDelegate
         panel.center()
         panel.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
         panelWindow = panel
         windowIsPinned = true
     }
