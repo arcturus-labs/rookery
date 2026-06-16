@@ -295,7 +295,12 @@ final class AgentStationModel: ObservableObject {
         if let panelWindow {
             panelWindow.close()
         } else {
-            openPanelWindow()
+            // Defer past the current event pass: creating + sizing a second
+            // NSHostingController of the live panel view synchronously (from the
+            // menu-bar dropdown's own button handler) traps in NSHostingView.
+            DispatchQueue.main.async { [weak self] in
+                self?.openPanelWindow()
+            }
         }
     }
 
@@ -313,6 +318,10 @@ final class AgentStationModel: ObservableObject {
         // and clicking into it (e.g. the chat composer) won't yank focus away
         // from the app you're in.
         let panel = NSPanel(contentViewController: controller)
+        // Explicit initial size so the panel can never come up 0×0 before the
+        // SwiftUI view reports its intrinsic size; preferredContentSize then
+        // tracks content (incl. the 372↔460 width on detail screens).
+        panel.setContentSize(NSSize(width: 372, height: 600))
         panel.styleMask = [.titled, .closable, .fullSizeContentView, .nonactivatingPanel]
         panel.isFloatingPanel = true
         panel.level = .floating
