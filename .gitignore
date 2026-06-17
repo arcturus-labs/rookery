@@ -39,3 +39,11 @@ agent-server-client/config/agent-profiles.json
 # Skill-local generated artifacts
 my-agent/skills/youtube-transcript/node_modules/
 my-agent/skills/youtube-transcript/.env
+
+# Swift package build artifacts
+RookKit/.build/
+.swiftpm/
+
+# Xcode user state
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
