@@ -9,6 +9,7 @@ struct ChatScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            PlaceCaption(model: model)
             Divider().overlay(PanelPalette.border)
             thread
             statusRow

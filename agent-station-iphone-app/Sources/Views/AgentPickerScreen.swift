@@ -5,18 +5,29 @@ struct AgentPickerScreen: View {
     @ObservedObject var model: RookModel
     @State private var showingServerField = false
     @State private var serverDraft = ""
+    @State private var showingPlaces = false
 
     var body: some View {
         VStack(spacing: 0) {
             RookHeader(model: model, trailing: AnyView(
-                Button {
-                    serverDraft = model.baseURLString
-                    showingServerField = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(PanelPalette.textMuted)
+                HStack(spacing: 14) {
+                    Button {
+                        showingPlaces = true
+                    } label: {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundStyle(PanelPalette.textMuted)
+                    }
+                    Button {
+                        serverDraft = model.baseURLString
+                        showingServerField = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .foregroundStyle(PanelPalette.textMuted)
+                    }
                 }
             ))
+
+            PlaceCaption(model: model)
 
             if model.serverState == .offline {
                 offlineCard
@@ -68,6 +79,9 @@ struct AgentPickerScreen: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("On a device, use your Mac's LAN address. The simulator reaches localhost directly.")
+        }
+        .sheet(isPresented: $showingPlaces) {
+            PlacesScreen(model: model)
         }
     }
 

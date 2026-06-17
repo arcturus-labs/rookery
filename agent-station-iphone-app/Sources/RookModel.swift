@@ -41,6 +41,12 @@ final class RookModel: ObservableObject {
     @Published var offerLoading = false
     @Published var offerError = ""
 
+    // Location → place environment provider
+    let placeStore = PlaceStore()
+    let locationProvider = LocationProvider()
+    @Published var placeEnvironmentId: String?
+    @Published var currentPlaceName: String?
+
     // Server address (configurable for a physical device on the LAN; the
     // simulator reaches the Mac's localhost directly).
     @Published var baseURLString: String
@@ -71,8 +77,73 @@ final class RookModel: ObservableObject {
                 await self?.refreshHealth()
             }
         }
+        locationProvider.onRegionChange = { [weak self] place in
+            self?.handlePlace(place)
+        }
+        locationProvider.updateMonitoredPlaces(placeStore.places)
         Task {
             await refreshHealth()
+        }
+    }
+
+    // MARK: - Location → place environment
+
+    func enableLocation() {
+        locationProvider.requestAuthorization()
+        refreshMonitoredPlaces()
+    }
+
+    func refreshMonitoredPlaces() {
+        locationProvider.updateMonitoredPlaces(placeStore.places)
+    }
+
+    /// Mirrors `AgentStationModel.handleForegroundApp`: diff the current place
+    /// against the registered environment, unavailable the old, register the new
+    /// (only if the server has skills for it — the iOS analog of the Mac's
+    /// on-disk skill-bundle guard, done via the preview endpoint).
+    private func handlePlace(_ place: Place?) {
+        currentPlaceName = place?.name
+        let envId = place.map { "place:\($0.id)" }
+        guard envId != placeEnvironmentId else {
+            return
+        }
+        let previous = placeEnvironmentId
+        placeEnvironmentId = envId
+        Task {
+            if let previous {
+                try? await api.markEnvironmentUnavailable(id: previous)
+            }
+            guard let place, let envId else {
+                return
+            }
+            let skills = (try? await api.skillPreviews(environmentId: envId)) ?? []
+            guard !skills.isEmpty else {
+                // No skills defined for this place — don't raise an empty offer.
+                if placeEnvironmentId == envId {
+                    placeEnvironmentId = nil
+                }
+                return
+            }
+            let metadata: [String: JSONValue] = [
+                "slug": .string(place.id),
+                "latitude": .number(place.latitude),
+                "longitude": .number(place.longitude),
+            ]
+            try? await api.registerEnvironment(id: envId, sourceName: place.name, metadata: metadata)
+        }
+    }
+
+    private func reannouncePlaceEnvironment() {
+        guard let envId = placeEnvironmentId, let place = locationProvider.current else {
+            return
+        }
+        Task {
+            let metadata: [String: JSONValue] = [
+                "slug": .string(place.id),
+                "latitude": .number(place.latitude),
+                "longitude": .number(place.longitude),
+            ]
+            try? await api.registerEnvironment(id: envId, sourceName: place.name, metadata: metadata)
         }
     }
 
@@ -98,6 +169,7 @@ final class RookModel: ObservableObject {
             serverState = .online
             if !wasOnline {
                 await loadAgents()
+                reannouncePlaceEnvironment()
                 await autoResumeRecentSessionIfNeeded()
             }
         } else {

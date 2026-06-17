@@ -9,14 +9,18 @@
 /* Begin PBXBuildFile section */
 		219F951A1479769704EAB1DD /* ChatScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4EF5AAEC5E22542FA87BFA /* ChatScreen.swift */; };
 		3E31B1CCF1F908C5F7D29789 /* RookModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AF66E11A378847455B9EB32 /* RookModel.swift */; };
+		4173AAB22A3E2CE2F1D8F1D5 /* LocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE760C1B72265F36091790A /* LocationProvider.swift */; };
 		425A75EDAAF30B37701DD25D /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BD772167EE16CB4B505749 /* RootView.swift */; };
+		6466135E2CDDBF493C2179B9 /* PlacesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29576F6F57489599396405E7 /* PlacesScreen.swift */; };
 		6A758CE682622466DE13275A /* EnvironmentOfferSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3750D99D34721CDF69C0308 /* EnvironmentOfferSheet.swift */; };
 		8840E0A6C19AD35B38A0943B /* RookKit in Frameworks */ = {isa = PBXBuildFile; productRef = 14EB51A753FB1D1C047A02B6 /* RookKit */; };
 		BC167FA11552D7BB927EA275 /* RookApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3242EFA5038F71BF9B1BA2C2 /* RookApp.swift */; };
+		D78E9CFFE4A0752E0DC8E7CF /* Place.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4B15032C32C3A8CFD7D44F9 /* Place.swift */; };
 		E392DAA1A839394313F7B082 /* AgentPickerScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E79B58E5AF477E4EE3EF7A6 /* AgentPickerScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		29576F6F57489599396405E7 /* PlacesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesScreen.swift; sourceTree = "<group>"; };
 		2970A475DCF3F26A17C649E2 /* Rook.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Rook.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3242EFA5038F71BF9B1BA2C2 /* RookApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RookApp.swift; sourceTree = "<group>"; };
 		4AC9D0D68548AE9E330CAABA /* RookKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RookKit; path = ../RookKit; sourceTree = SOURCE_ROOT; };
@@ -26,6 +30,8 @@
 		B08909E5BDA34D380AF7B25F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D3750D99D34721CDF69C0308 /* EnvironmentOfferSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentOfferSheet.swift; sourceTree = "<group>"; };
 		D7BD772167EE16CB4B505749 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		DCE760C1B72265F36091790A /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
+		F4B15032C32C3A8CFD7D44F9 /* Place.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Place.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,9 +69,19 @@
 				B08909E5BDA34D380AF7B25F /* Info.plist */,
 				3242EFA5038F71BF9B1BA2C2 /* RookApp.swift */,
 				4AF66E11A378847455B9EB32 /* RookModel.swift */,
+				83C0B875BB75ACA3F7269FF8 /* Location */,
 				9525B3E845F87FA8A741FEDF /* Views */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		83C0B875BB75ACA3F7269FF8 /* Location */ = {
+			isa = PBXGroup;
+			children = (
+				DCE760C1B72265F36091790A /* LocationProvider.swift */,
+				F4B15032C32C3A8CFD7D44F9 /* Place.swift */,
+			);
+			path = Location;
 			sourceTree = "<group>";
 		};
 		9525B3E845F87FA8A741FEDF /* Views */ = {
@@ -74,6 +90,7 @@
 				6E79B58E5AF477E4EE3EF7A6 /* AgentPickerScreen.swift */,
 				4C4EF5AAEC5E22542FA87BFA /* ChatScreen.swift */,
 				D3750D99D34721CDF69C0308 /* EnvironmentOfferSheet.swift */,
+				29576F6F57489599396405E7 /* PlacesScreen.swift */,
 				D7BD772167EE16CB4B505749 /* RootView.swift */,
 			);
 			path = Views;
@@ -148,6 +165,9 @@
 				E392DAA1A839394313F7B082 /* AgentPickerScreen.swift in Sources */,
 				219F951A1479769704EAB1DD /* ChatScreen.swift in Sources */,
 				6A758CE682622466DE13275A /* EnvironmentOfferSheet.swift in Sources */,
+				4173AAB22A3E2CE2F1D8F1D5 /* LocationProvider.swift in Sources */,
+				D78E9CFFE4A0752E0DC8E7CF /* Place.swift in Sources */,
+				6466135E2CDDBF493C2179B9 /* PlacesScreen.swift in Sources */,
 				BC167FA11552D7BB927EA275 /* RookApp.swift in Sources */,
 				3E31B1CCF1F908C5F7D29789 /* RookModel.swift in Sources */,
 				425A75EDAAF30B37701DD25D /* RootView.swift in Sources */,

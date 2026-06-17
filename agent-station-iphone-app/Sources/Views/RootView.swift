@@ -55,3 +55,31 @@ struct RookHeader: View {
         .padding(.vertical, 10)
     }
 }
+
+/// Live "where you are" caption: the current place + whether skills are loaded.
+struct PlaceCaption: View {
+    @ObservedObject var model: RookModel
+
+    var body: some View {
+        if let place = model.currentPlaceName {
+            let hasSkills = model.placeEnvironmentId != nil
+            HStack(spacing: 6) {
+                Image(systemName: "mappin.circle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(hasSkills ? PanelPalette.accentHover : PanelPalette.textMuted)
+                Text("At \(place)")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(PanelPalette.textNormal)
+                Circle()
+                    .fill(hasSkills ? PanelPalette.success : PanelPalette.textMuted.opacity(0.6))
+                    .frame(width: 5, height: 5)
+                Text(hasSkills ? "skills active" : "no skills")
+                    .font(.caption2)
+                    .foregroundStyle(hasSkills ? PanelPalette.success : PanelPalette.textMuted)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+        }
+    }
+}
