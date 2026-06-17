@@ -35,6 +35,10 @@ struct AgentPickerScreen: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    if model.currentSession != nil && !model.chatVisible {
+                        resumeRow
+                    }
+
                     Text("CHAT WITH")
                         .font(.system(size: 11, weight: .semibold))
                         .kerning(0.6)
@@ -50,7 +54,7 @@ struct AgentPickerScreen: View {
                         PanelCard {
                             ForEach(Array(model.agentTree.enumerated()), id: \.element.agent.id) { index, entry in
                                 Button {
-                                    model.startNewSession(agentId: entry.agent.id, name: "")
+                                    model.openAgentSessions(entry.agent.id)
                                 } label: {
                                     AgentRow(agent: entry.agent, depth: entry.depth)
                                 }
@@ -83,6 +87,58 @@ struct AgentPickerScreen: View {
         .sheet(isPresented: $showingPlaces) {
             PlacesScreen(model: model)
         }
+    }
+
+    private var resumeRow: some View {
+        Button {
+            model.openChat()
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(PanelPalette.accent))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Resume chat")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(PanelPalette.textNormal)
+                    Text(resumeLine)
+                        .font(.caption)
+                        .foregroundStyle(PanelPalette.textMuted)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Spacer(minLength: 4)
+                if model.isRunning {
+                    StatusDot(tint: PanelPalette.warning)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(PanelPalette.textMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(PanelPalette.accent.opacity(0.14))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(PanelPalette.accent.opacity(0.4))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var resumeLine: String {
+        guard let session = model.currentSession else {
+            return ""
+        }
+        let name = session.name == "default" ? "" : " · \(session.name)"
+        return "\(session.agent)\(name)"
     }
 
     private var offlineCard: some View {

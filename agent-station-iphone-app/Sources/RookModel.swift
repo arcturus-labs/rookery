@@ -20,6 +20,7 @@ final class RookModel: ObservableObject {
     @Published var agentsError = ""
 
     // Session selection
+    @Published var selectedAgentId: String?
     @Published var sessions: [AgentSessionSummary] = []
     @Published var sessionsLoading = false
     @Published var sessionsError = ""
@@ -27,6 +28,10 @@ final class RookModel: ObservableObject {
 
     // Chat
     @Published var currentSession: AgentSessionSummary?
+    // Whether the chat screen is actually presented. A session can be live
+    // (auto-resumed/warmed) without the chat being on screen — that lands the
+    // user on the agent list with a "Resume chat" affordance, like the Mac.
+    @Published var chatVisible = false
     @Published var blocks: [ChatBlock] = []
     @Published var queuedMessages: [String] = []
     @Published var isRunning = false
@@ -334,7 +339,23 @@ final class RookModel: ObservableObject {
         guard let recent = try? await api.recentSession() else {
             return
         }
-        await resumeSession(recent)
+        // Warm the most recent session in the background, but stay on the agent
+        // list — don't force the user into a chat on launch.
+        await resumeSession(recent, switchToChat: false)
+    }
+
+    /// Open the per-agent session list (mirrors the Mac app's `.sessions` panel):
+    /// tapping an agent shows its previous sessions to resume, plus a new-chat
+    /// entry — instead of silently spawning a fresh session.
+    func openAgentSessions(_ agentId: String) {
+        selectedAgentId = agentId
+        sessions = []
+        sessionsError = ""
+        Task { await loadSessions(agentId: agentId) }
+    }
+
+    func closeAgentSessions() {
+        selectedAgentId = nil
     }
 
     func loadSessions(agentId: String) async {
@@ -368,21 +389,33 @@ final class RookModel: ObservableObject {
         startingSession = true
         Task {
             defer { startingSession = false }
-            await resumeSession(session)
+            await resumeSession(session, switchToChat: true)
         }
     }
 
-    private func resumeSession(_ session: AgentSessionSummary) async {
+    private func resumeSession(_ session: AgentSessionSummary, switchToChat: Bool) async {
         do {
             let started = try await api.resumeSession(session)
-            enterChat(session: started, resumed: true)
+            enterChat(session: started, resumed: true, switchToChat: switchToChat)
         } catch {
             sessionsError = error.localizedDescription
         }
     }
 
-    private func enterChat(session: AgentSessionSummary, resumed: Bool) {
+    /// Bring the (already live) current session's chat on screen — used by the
+    /// "Resume chat" affordance and the Live Activity deep link.
+    func openChat() {
+        guard currentSession != nil else {
+            return
+        }
+        selectedAgentId = nil
+        chatVisible = true
+    }
+
+    private func enterChat(session: AgentSessionSummary, resumed: Bool, switchToChat: Bool = true) {
         reconnectTask?.cancel()
+        selectedAgentId = nil
+        chatVisible = switchToChat
         currentSession = session
         blocks = []
         queuedMessages = []
@@ -401,7 +434,42 @@ final class RookModel: ObservableObject {
         socket.disconnect()
         reconnectTask?.cancel()
         currentSession = nil
+        chatVisible = false
         endLiveActivity()
+    }
+
+    // MARK: - App lifecycle (scenePhase)
+
+    private var pendingSocketResume = false
+
+    /// iOS suspends the websocket when the app backgrounds. Tear it down
+    /// intentionally (silent — no phantom "connection lost") and stop any
+    /// in-flight run spinner cleanly; reconnect on return. The place
+    /// environment is deliberately NOT released here: region monitoring keeps
+    /// running in the background, so you're still "at" the place — physically
+    /// leaving the geofence (`didExitRegion`) is what unregisters it.
+    func handleEnteredBackground() {
+        guard currentSession != nil else {
+            return
+        }
+        if socket.isConnected {
+            socket.disconnect()
+            pendingSocketResume = true
+        }
+        if isRunning {
+            finalizeStreamingBlocks()
+            isRunning = false
+            statusLine = ""
+        }
+    }
+
+    func handleBecameActive() {
+        reannouncePlaceEnvironment()
+        if pendingSocketResume, currentSession != nil, !socket.isConnected {
+            pendingSocketResume = false
+            scheduleReconnect(delaySeconds: 0)
+        }
+        Task { await refreshHealth() }
     }
 
     // MARK: - Chat

@@ -11,8 +11,10 @@ struct RootView: View {
             PanelBackground()
                 .ignoresSafeArea()
 
-            if model.currentSession != nil {
+            if model.currentSession != nil && model.chatVisible {
                 ChatScreen(model: model)
+            } else if let agentId = model.selectedAgentId {
+                SessionsScreen(model: model, agentId: agentId)
             } else {
                 AgentPickerScreen(model: model)
             }
@@ -20,7 +22,10 @@ struct RootView: View {
         .tint(PanelPalette.accent)
         .sheet(isPresented: Binding(
             get: { model.pendingOffer != nil },
-            set: { if !$0 { model.clearOffer() } }
+            // Swiping the sheet away is "Not now": send an ignore decision so the
+            // server doesn't keep a dangling unresolved offer, and the offer can
+            // still be re-raised later. (A bare clearOffer() would lose it silently.)
+            set: { if !$0 { model.decideEnvironment("ignore") } }
         )) {
             EnvironmentOfferSheet(model: model)
         }

@@ -81,6 +81,34 @@ struct PlacesScreen: View {
                 Text(String(format: "Here: %.4f, %.4f", loc.coordinate.latitude, loc.coordinate.longitude))
                     .font(.caption2.monospaced())
                     .foregroundStyle(PanelPalette.textMuted)
+            } else {
+                Text("Getting your location…")
+                    .font(.caption2)
+                    .foregroundStyle(PanelPalette.textMuted)
+            }
+
+            if !model.locationProvider.hasAlways {
+                Button {
+                    model.locationProvider.requestAuthorization()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "location.circle")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Enable background (Always) for arrivals when the app is closed")
+                            .font(.caption2.weight(.medium))
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(PanelPalette.warning)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(PanelPalette.warning.opacity(0.12))
+                    )
+                }
+                .buttonStyle(.plain)
             }
 
             CompactActionButton(

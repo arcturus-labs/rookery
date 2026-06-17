@@ -83,9 +83,23 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
         Task { @MainActor in
+            let wasAuthorized = self.isAuthorized
             self.authorizationStatus = status
             if status == .authorizedAlways {
                 manager.allowsBackgroundLocationUpdates = true
+                manager.startMonitoringVisits()
+            }
+            if status == .authorizedAlways || status == .authorizedWhenInUse {
+                // Grab an initial fix so the "save a place" UI has coordinates
+                // and the first Save works without a second tap.
+                manager.requestLocation()
+                // Newly granted When-In-Use → escalate toward Always, since
+                // background geofencing (the headline feature) requires it. iOS
+                // shows the upgrade prompt once; PlacesScreen also offers a
+                // manual upgrade if the user declines here.
+                if !wasAuthorized && status == .authorizedWhenInUse {
+                    manager.requestAlwaysAuthorization()
+                }
             }
         }
     }
