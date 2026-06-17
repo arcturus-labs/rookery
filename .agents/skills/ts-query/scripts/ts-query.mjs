@@ -2,8 +2,9 @@
 /**
  * Semantic TypeScript queries via the compiler API — a lightweight LSP substitute.
  *
- * Runs from repo root (or any subdirectory); auto-detects agent-server-client/.
- * File paths are resolved relative to agent-server-client/.
+ * Defaults to the server/ package (the backend, which has its own tsconfig +
+ * typescript). To query a different package (e.g. client/ or shared/), run from
+ * inside it — the tool falls back to the nearest tsconfig at/above the CWD.
  */
 
 import { createRequire } from "node:module";
@@ -13,25 +14,27 @@ import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Walk up from the skill's scripts/ directory to the repo root, then into agent-server-client/.
+// Walk up from the skill's scripts/ directory to the repo root, then into the
+// default package (server/).
 // Skill layout: .agents/skills/<name>/scripts/ts-query.mjs  →  ../../../../ = repo root
 const SKILL_SCRIPTS_DIR = __dirname;
 const REPO_ROOT = path.resolve(SKILL_SCRIPTS_DIR, "..", "..", "..", "..");
-const agentClientRoot = path.join(REPO_ROOT, "agent-server-client");
-const require = createRequire(path.join(agentClientRoot, "package.json"));
+const defaultPackageRoot = path.join(REPO_ROOT, "server");
+const require = createRequire(path.join(defaultPackageRoot, "package.json"));
 const ts = require("typescript");
 
-// Auto-detect agent-server-client/.
-let ROOT = agentClientRoot;
+// Default to server/; otherwise resolve the nearest tsconfig at/above the CWD
+// so you can query client/ or shared/ by running from inside them.
+let ROOT = defaultPackageRoot;
 if (!fs.existsSync(path.join(ROOT, "tsconfig.json"))) {
   // Fall back to CWD.
   ROOT = path.resolve(".");
   if (!fs.existsSync(path.join(ROOT, "tsconfig.json"))) {
-    // Walk up from CWD.
+    // Walk up from CWD looking for the nearest package with a tsconfig.json.
     let dir = ROOT;
     while (dir !== path.dirname(dir)) {
-      if (fs.existsSync(path.join(dir, "agent-server-client", "tsconfig.json"))) {
-        ROOT = path.join(dir, "agent-server-client");
+      if (fs.existsSync(path.join(dir, "tsconfig.json"))) {
+        ROOT = dir;
         break;
       }
       dir = path.dirname(dir);
@@ -39,7 +42,7 @@ if (!fs.existsSync(path.join(ROOT, "tsconfig.json"))) {
   }
 }
 if (!fs.existsSync(path.join(ROOT, "tsconfig.json"))) {
-  console.error("Cannot find agent-server-client/tsconfig.json. Run from the repo root or agent-server-client/.");
+  console.error("Cannot find a tsconfig.json. Run from the repo root (defaults to server/) or from inside a package.");
   process.exit(1);
 }
 const CONFIG_PATH = path.join(ROOT, "tsconfig.json");

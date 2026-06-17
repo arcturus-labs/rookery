@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Signal that an environment is available (and optionally record a decision for it).
-# Run from repo root while the agent-server-client dev server is up.
+# Run from repo root while the Agent Station dev server is up.
 #
 #   ./scripts/inject-environment.sh demo:demo
 #   ./scripts/inject-environment.sh --decide accept demo:demo

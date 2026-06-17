@@ -1,6 +1,6 @@
 # Agent Station Obsidian Extension
 
-Obsidian plugin that embeds the **agent-server-client** web app in a right-sidebar panel.
+Obsidian plugin that embeds the **Agent Station web client** in a right-sidebar panel.
 
 ## TL;DR
 
@@ -13,11 +13,11 @@ You do **not** need to know the lower-level messaging details to use or develop 
 This plugin gives you an in-Obsidian entry point for chatting with your agent without leaving your notes workflow.
 
 - Open a sidebar chat panel directly in Obsidian
-- Reuse the existing `agent-server-client` UI and runtime behavior
+- Reuse the existing Agent Station web client (`client/`) UI and runtime behavior
 - Keep Obsidian plugin logic thin (view/container shell)
-- Iterate quickly on agent UX in one place (`agent-server-client`)
+- Iterate quickly on agent UX in one place (`client/`)
 
-In short: **Obsidian provides the host panel; `agent-server-client` provides the actual app experience.**
+In short: **Obsidian provides the host panel; the Agent Station web client provides the actual app experience.**
 
 ## How it works (high level)
 
@@ -35,24 +35,24 @@ Today, the Obsidian plugin itself is intentionally minimal:
 - `agent-station-obsidian-extension/src/main.ts` creates the iframe and points it at localhost
 - It does **not** implement a custom message bus in the plugin shell yet
 
-Cross-window messaging is handled inside `agent-server-client` when needed:
+Cross-window messaging is handled inside the web client when needed:
 
 - during agent runs, a special tool call (`message_parent`) can relay JSON payloads to the parent window via `postMessage`
 - environment availability is now modeled through the server-side `EnvironmentManager`, not a client-side skill-injection flow
 
-So at a practical level: the plugin hosts the iframe; the iframe app (`agent-server-client`) owns runtime chat behavior and any parent-window messaging.
+So at a practical level: the plugin hosts the iframe; the iframe app (the Agent Station web client) owns runtime chat behavior and any parent-window messaging.
 
 ## Monorepo context
 
 Part of the [agent-station](../README.md) monorepo.
 
 - `agent-station-obsidian-extension/` has its own `package.json` and `node_modules`
-- `agent-server-client/` runs the web UI loaded by the iframe
+- `server/` serves the web UI (`client/`) loaded by the iframe
 - the main app should be running at `http://127.0.0.1:3000`
 
 ## Development
 
-1. From repo root, run the shared dev stack (includes agent-server-client on port 3000):
+1. From repo root, run the shared dev stack (serves the web client on port 3000):
 
 ```bash
 npm run dev
@@ -94,4 +94,4 @@ ln -sf "$(pwd)" ~/.config/obsidian/plugins/agent-station-obsidian-extension
 
 Early prototype (`v0.0.1`).
 
-Primary runtime UX is delivered by `agent-server-client` through the iframe.
+Primary runtime UX is delivered by the Agent Station web client through the iframe.

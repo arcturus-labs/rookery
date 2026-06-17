@@ -5,7 +5,10 @@ description: Semantic TypeScript queries (find references, dead exports, imports
 
 # ts-query — semantic TypeScript queries
 
-Runs from repo root. All file paths are relative to `agent-server-client/`.
+Runs from repo root and queries the `server/` package by default; file paths are
+relative to `server/`. To query another package (`client/`, `shared/`), run the
+script from inside that package — it resolves the nearest `tsconfig.json` at or
+above the current directory.
 
 ```
 .agents/skills/ts-query/scripts/ts-query.mjs <command> <file> [symbol]
@@ -56,17 +59,20 @@ For simple text searches, `rg` is faster. Use `ts-query` when you need the type 
 ## Batch dead-symbol scan
 
 ```
-# Full project
+# Whole server/ package (the default)
 .agents/skills/ts-query/scripts/find-all-dead.mjs
 
-# Filter to a directory
-.agents/skills/ts-query/scripts/find-all-dead.mjs src/client
+# Filter to a directory within the package
 .agents/skills/ts-query/scripts/find-all-dead.mjs src/shared
 .agents/skills/ts-query/scripts/find-all-dead.mjs src/server/agents
+
+# Scan a different package: <dir-filter> <package-root>
+.agents/skills/ts-query/scripts/find-all-dead.mjs src/lib ../../../../client
 ```
 
 Scans every source file for exports with zero **named imports** and outputs
-`file  symbol` for each. Filter by passing a directory prefix argument.
+`file  symbol` for each. The first arg filters by directory prefix; an optional
+second arg points the scan at another package root (default `server/`).
 
 ### False positives — investigate every result
 

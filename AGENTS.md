@@ -6,9 +6,9 @@ Product/design notes: `PRODUCT/`. When making PRs, make sure to reference anythi
 
 When making changes:
 - Keep tests in sync with code changes.
-- When you make obvious structural or workflow changes, update the relevant READMEs: root `README.md` and the README in whichever major package you touched (`agent-server-client/`, `agent-station-chrome-extension/`, `agent-station-obsidian-extension/`). Also update relevant docs in PRODUCT
+- When you make obvious structural or workflow changes, update the relevant READMEs: root `README.md` and the README in whichever major package you touched (`server/`, `client/`, `shared/`, `agent-station-chrome-extension/`, `agent-station-obsidian-extension/`, `agent-station-menu-bar-app-mac/`, `agent-station-iphone-app/`, `RookKit/`). Also update relevant docs in PRODUCT
 - Once you're complete with a large chunk of work, use the mac `say` command to tell me what you've done. Use no more than 7 words. You can background it (e.g. `say '…' &`) so it does not block the shell. Make sure to always end the `say` expression with a sentence-ending punctuation.
 
 # Debug scripts
 
-Use `scripts/interact-with-remote-agent.sh` to exercise the remote-agent bridge without the UI (run from repo root; installs deps in `agent-server-client` once). Read the docs to use it.
+Use `scripts/interact-with-remote-agent.sh` to exercise the remote-agent bridge without the UI (run from repo root; needs the `server/` package deps installed — `cd server && npm install` once). Read the docs to use it.

@@ -1,16 +1,16 @@
 /**
  * Exercise the remote-agent bridge without the web UI.
  *
- * Run from the repo root (no need to cd into agent-server-client):
+ * Run from the repo root (no need to cd into any package):
  *
  *   ./scripts/interact-with-remote-agent.sh [options] <prompt>
  *   npm run agent:cli -- [options] <prompt>
  *
  * One-time setup if tsx is missing:
  *
- *   cd agent-server-client && npm install
+ *   cd server && npm install
  *
- * The .sh wrapper locates agent-server-client's tsx and tsconfig; this file
+ * The .sh wrapper locates the server package's tsx and tsconfig; this file
  * starts a local Fastify server on a random port and streams session events.
  *
  * Options:
@@ -83,14 +83,14 @@
 
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { AgentSessionSummary } from "../agent-server-client/src/shared/agent.js";
-import type { AcpServerMessage, JsonRpcMessage } from "../agent-server-client/src/shared/acp.js";
-import type { AcpClientEvent } from "../agent-server-client/src/client/acpClientTypes.js";
-import { RemoteAgent } from "../agent-server-client/src/client/remoteAgent.js";
+import type { AgentSessionSummary } from "../shared/src/agent.js";
+import type { AcpServerMessage, JsonRpcMessage } from "../shared/src/acp.js";
+import type { AcpClientEvent } from "../client/src/lib/acpClientTypes.js";
+import { RemoteAgent } from "../client/src/lib/remoteAgent.js";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
-const CLIENT_ROOT = path.join(REPO_ROOT, "agent-server-client");
+const SERVER_ROOT = path.join(REPO_ROOT, "server");
 
 const ACP_CLIENT_EVENT_TYPES = [
   "acp_status_changed",
@@ -443,7 +443,7 @@ async function printRawAcpSession(baseUrl: string, options: {
 async function main() {
   const { agent, session, prompt, restart, replay, filter, rawAcp, listAgents, modeId, steerText, steerAfterMs, cancelAfterMs, permissionMode } = parseArgs(process.argv.slice(2));
 
-  const serverEntry = pathToFileURL(path.join(CLIENT_ROOT, "src/server/index.js")).href;
+  const serverEntry = pathToFileURL(path.join(SERVER_ROOT, "src/server/index.js")).href;
   const { buildServer } = await import(serverEntry);
   const app = await buildServer({ enableClient: false, logger: false });
   try {

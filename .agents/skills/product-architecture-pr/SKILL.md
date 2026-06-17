@@ -77,7 +77,7 @@ If classification differs between product and architecture, say so explicitly in
 Before opening the PR:
 
 - **`PRODUCT/`** — per classification above; keep edits terse
-- **READMEs** — root and package READMEs when structure or workflow changes (`agent-server-client/`, extensions, etc.)
+- **READMEs** — root and package READMEs when structure or workflow changes (`server/`, `client/`, `shared/`, extensions, etc.)
 - **Supersedes** — do not silently delete ideas; mark deprecated and point to the new approach
 
 Include doc changes in the **same branch** as the code.

@@ -1,4 +1,4 @@
-# Agent Station (agent-server-client)
+# Agent Station (server)
 
 Fastify API, runtime orchestration, and dev/static hosting for the new shared client. Part of the [Agent Station](../README.md) monorepo. Product/architecture notes: [PRODUCT/](../PRODUCT/).
 
@@ -52,9 +52,9 @@ Field meanings:
 - `args`: runtime-specific arguments (`pi` forwards Pi-style args; `claude` currently supports `--add-dir <path>`)
 
 Important defaults:
-- `agent-server-client/node_modules/pi-acp/dist/index.js` is the ACP adapter used for Pi
+- `server/node_modules/pi-acp/dist/index.js` is the ACP adapter used for Pi
   - installed from `github:arcturus-labs/pi-acp`; `npm install` fetches it automatically
-- `agent-server-client/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js` is the ACP adapter used for Claude
+- `server/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js` is the ACP adapter used for Claude
 - `PiAgent` generates a tiny launcher internally at runtime instead of relying on a checked-in wrapper script
 - `args: ["-e", "../my-agent", "--provider", "openai-codex", "--model", "gpt-5.4"]` points Pi at `../my-agent` on ChatGPT Codex subscription auth (`pi` then `/login`). Use provider `openai` with `--model openai/...` for direct API keys instead.
 
@@ -252,5 +252,5 @@ npm run build
 From this package:
 
 ```bash
-npm run dev -w agent-server-client
+npm run dev --prefix server   # or: npm run dev (from repo root)
 ```

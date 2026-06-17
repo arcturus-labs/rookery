@@ -4,18 +4,16 @@
 #   ./scripts/interact-with-remote-agent.sh [options] <prompt>
 #   npm run agent:cli -- [options] <prompt>
 #
-# Setup once: cd agent-server-client && npm install
+# Setup once: cd server && npm install
 #
 # Common flags: --agent PiAgent | MyPiOpenAiAgent | PirateClaudeAgent | CursorAutoAgent
 #               --list-agents  --omit-deltas  --only <types>  --omit <types>
 #               --steer '<text>'  --steer-after-ms 1500  --permission allow-once
 #               --session '<json>'  --restart  --replay  --no-session  --no-replay  --raw-acp  --help
 #
-# SessionEvent types (--omit-deltas hides text_delta, thinking_delta, tool_input_delta, tool_output_delta):
-#   status_changed  user_message  assistant_message_started  assistant_message_completed
-#   assistant_message_error  text_delta  thinking_delta  tool_call_started  tool_input_delta
-#   tool_call_ready  tool_running  tool_output_delta  tool_completed  tool_error
-#   run_completed  run_failed  protocol_error  connection_error  environment_event
+# Event output is ACP client events (acp_*) — see the interact-with-remote-agent.ts
+# header for the full type list used by --omit / --only (--omit-deltas hides the
+# message/thought/tool-input delta types).
 #
 # Full example:
 #   ./scripts/interact-with-remote-agent.sh \
@@ -29,13 +27,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CLIENT_ROOT="$REPO_ROOT/agent-server-client"
-TSX="$CLIENT_ROOT/node_modules/tsx/dist/cli.mjs"
+SERVER_ROOT="$REPO_ROOT/server"
+TSX="$SERVER_ROOT/node_modules/tsx/dist/cli.mjs"
 
 if [[ ! -f "$TSX" ]]; then
   echo "Missing tsx. Install deps once:" >&2
-  echo "  cd \"$CLIENT_ROOT\" && npm install" >&2
+  echo "  cd \"$SERVER_ROOT\" && npm install" >&2
   exit 1
 fi
 
-exec node "$TSX" --tsconfig "$CLIENT_ROOT/tsconfig.json" "$SCRIPT_DIR/interact-with-remote-agent.ts" "$@"
+exec node "$TSX" --tsconfig "$SERVER_ROOT/tsconfig.json" "$SCRIPT_DIR/interact-with-remote-agent.ts" "$@"

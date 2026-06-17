@@ -33,9 +33,6 @@ __pycache__/
 # OS/editor noise
 .DS_Store
 
-# Agent profile local config
-agent-server-client/config/agent-profiles.json
-
 # Skill-local generated artifacts
 my-agent/skills/youtube-transcript/node_modules/
 my-agent/skills/youtube-transcript/.env

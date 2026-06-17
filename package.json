@@ -2,7 +2,7 @@
   "name": "agent-station",
   "version": "0.1.0",
   "private": true,
-  "description": "Agent Station monorepo orchestrator (install deps in agent-server-client and client).",
+  "description": "Agent Station monorepo orchestrator (install deps in server and client).",
   "scripts": {
     "dev": "npm run dev --prefix server",
     "dev:dummy": "npm run dev:dummy --prefix server",

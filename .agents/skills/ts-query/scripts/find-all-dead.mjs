@@ -10,7 +10,9 @@ import fs from "node:fs";
 
 const SKILL_SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SKILL_SCRIPTS_DIR, "..", "..", "..", "..");
-const ROOT = path.join(REPO_ROOT, "agent-server-client");
+// Defaults to the server/ package; pass a package root as the 2nd arg to scan
+// another (e.g. `find-all-dead.mjs src/lib ../../../../client`).
+const ROOT = process.argv[3] ? path.resolve(process.argv[3]) : path.join(REPO_ROOT, "server");
 const require = createRequire(path.join(ROOT, "package.json"));
 const ts = require("typescript");
 

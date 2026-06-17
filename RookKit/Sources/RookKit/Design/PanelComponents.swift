@@ -3,9 +3,9 @@ import SwiftUI
 import AppKit
 #endif
 
-/// Design tokens lifted from the web client
-/// (`agent-server-client/src/client/styles/tokens.css`). Shared by the macOS
-/// menu-bar app and the iOS app.
+/// Design tokens lifted from the Agent Station web client (`client/`) to keep
+/// the native and web UIs visually consistent. Shared by the macOS menu-bar app
+/// and the iOS app.
 public enum PanelPalette {
     public static let accent = Color(red: 0.486, green: 0.227, blue: 0.929)        // #7c3aed
     public static let accentHover = Color(red: 0.545, green: 0.361, blue: 0.965)   // #8b5cf6
