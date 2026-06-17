@@ -82,8 +82,16 @@ final class RookModel: ObservableObject {
     private var userCancelledRun = false
 
     init() {
+        let env = ProcessInfo.processInfo.environment["ROOK_SERVER_BASE_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines)
         let stored = UserDefaults.standard.string(forKey: "RookServerBaseURL")
-        let urlString = stored?.isEmpty == false ? stored! : "http://127.0.0.1:3000"
+        let urlString: String
+        if let env, !env.isEmpty {
+            urlString = env
+        } else if let stored, !stored.isEmpty {
+            urlString = stored
+        } else {
+            urlString = "http://127.0.0.1:3000"
+        }
         baseURLString = urlString
         api = AgentStationAPI(baseURL: URL(string: urlString) ?? URL(string: "http://127.0.0.1:3000")!)
 

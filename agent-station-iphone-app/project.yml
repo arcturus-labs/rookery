@@ -6,8 +6,6 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    CODE_SIGNING_ALLOWED: "NO"
-    CODE_SIGN_IDENTITY: "-"
     SWIFT_STRICT_CONCURRENCY: minimal
 packages:
   RookKit:

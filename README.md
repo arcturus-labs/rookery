@@ -43,6 +43,14 @@ Use the package READMEs above as the main lookup docs for each area.
    ```bash
    npm run dev
    ```
+   Or use the unified launcher:
+   ```bash
+   ./scripts/run-rook.sh server   # server only
+   ./scripts/run-rook.sh mac      # server + macOS menu bar app
+   ./scripts/run-rook.sh sim      # server + iPhone simulator app
+   ./scripts/run-rook.sh phone    # server + physical iPhone app
+   ./scripts/run-rook.sh stop     # stop server + launched apps/simulators
+   ```
 7. Open `http://127.0.0.1:3000`
 
 ## Pi agent configuration
@@ -93,6 +101,11 @@ If you move or rename the sibling package, update `args` in `agent-profiles.json
 ## Helpful scripts
 - `./scripts/interact-with-remote-agent.sh --agent PiAgent --omit-deltas "hello"` — exercise the server/client bridge without the web UI
 - `./scripts/interact-with-remote-agent.sh --raw-acp --agent PiAgent "hello"` — inspect raw ACP JSON-RPC traffic on the bridge
+- `./scripts/run-rook.sh server` — start the server only (or reuse the running one)
+- `./scripts/run-rook.sh mac` — start the server if needed, rebuild, and launch the macOS menu bar app
+- `./scripts/run-rook.sh sim` — start the server if needed, rebuild, and launch the iPhone app in Simulator
+- `./scripts/run-rook.sh phone` — start the server if needed, rebuild, and launch the iPhone app on a paired device
+- `./scripts/run-rook.sh stop` — stop the server, mac app, simulator app, booted simulators, and phone app when reachable
 - `./scripts/inject-environment.sh demo:demo` — manually register an environment
 - `./scripts/drop-database.sh --yes` — drop the current Agent Station SQLite database
 
@@ -101,8 +114,8 @@ If you move or rename the sibling package, update `args` in `agent-profiles.json
 - `client/` is the new shared UI package and currently has its own npm deps
 - `shared/` holds cross-package protocol/domain contracts being extracted out of the old/new client split
 - `agent-station-obsidian-extension/` is a separate npm package
-- `agent-station-menu-bar-app-mac/` is a Swift/xcodegen package (not npm); build it with `xcodegen generate` + `xcodebuild` — see its [README](agent-station-menu-bar-app-mac/README.md) for exact run steps and menu-bar troubleshooting
-- `agent-station-iphone-app/` is a Swift/xcodegen package (not npm); it depends on the shared `RookKit/` package and adds a Widget extension for the Live Activity — see its [README](agent-station-iphone-app/README.md) for run steps and simulator location-testing
+- `agent-station-menu-bar-app-mac/` is a Swift/xcodegen package (not npm); the preferred local launcher is `./scripts/run-rook.sh mac`, though you can still build manually with `xcodegen generate` + `xcodebuild` — see its [README](agent-station-menu-bar-app-mac/README.md) for exact run steps and menu-bar troubleshooting
+- `agent-station-iphone-app/` is a Swift/xcodegen package (not npm); the preferred local launchers are `./scripts/run-rook.sh sim` and `./scripts/run-rook.sh phone`. It depends on the shared `RookKit/` package and adds a Widget extension for the Live Activity — see its [README](agent-station-iphone-app/README.md) for device/simulator run steps and location-testing
 - `RookKit/` is a local Swift Package (iOS + macOS) holding the cross-platform layer shared by both Swift clients (models, REST/ACP clients, design system, voice, Live Activity attributes); build-check it with `cd RookKit && swift build`
 - `environment-repository/` holds local environment-linked skill bundles, keyed `<kind>/<path>` (`web/wikipedia`, `demo/demo`, `app/<slug>` for Mac apps fronted by the menu bar provider, and `place/<slug>` for physical locations fronted by the iPhone provider)
 - `scripts/` holds repo-level utilities

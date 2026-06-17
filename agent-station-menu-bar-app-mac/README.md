@@ -200,6 +200,17 @@ navigate and draft messages.
 Prerequisites: Xcode, [xcodegen](https://github.com/yonaskolb/XcodeGen)
 (`brew install xcodegen`), and Node (for the Agent Station server).
 
+Fast path from the repo root:
+
+```zsh
+./scripts/run-rook.sh mac
+./scripts/run-rook.sh stop   # shut down server + launched app(s)
+```
+
+`run-rook.sh mac` starts the server if needed, regenerates the Xcode project from `project.yml`, rebuilds incrementally, and launches the fresh app build.
+
+Manual steps:
+
 ```zsh
 # 1. Start the Agent Station server (skip if it's already running)
 cd <path-to-rookery>   # the repo root

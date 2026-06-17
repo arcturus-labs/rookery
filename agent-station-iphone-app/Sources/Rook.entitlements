@@ -3,13 +3,11 @@
 <plist version="1.0">
 <dict>
 	<!--
-	  Scaffolding for device builds. APNs is what enables away-from-app Live
-	  Activity updates (ActivityKit push-to-start + remote content updates) while
-	  Rook is closed. The full pipeline — a hosted server holding push tokens, plus
-	  Sign in with Apple — is Phase 3 (see PRODUCT/research/rook-on-iphone.md); this
-	  entitlement on its own does nothing on the simulator (unsigned) build.
+	  Push Notifications (aps-environment + the Push Notifications capability)
+	  require a paid Apple Developer Program membership.  When you are ready
+	  for Phase 3 push-driven agent reachability (Live Activity remote updates,
+	  push-to-start), re-add the aps-environment entitlement and enable the
+	  "Push Notifications" capability in Xcode.
 	-->
-	<key>aps-environment</key>
-	<string>development</string>
 </dict>
 </plist>

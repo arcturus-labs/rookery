@@ -125,6 +125,20 @@ Prerequisites: Xcode, [xcodegen](https://github.com/yonaskolb/XcodeGen)
 **Simulator shares the Mac's network**, so the default
 `http://127.0.0.1:3000` works unchanged from the simulator.
 
+Fast paths from the repo root:
+
+```zsh
+./scripts/run-rook.sh sim
+./scripts/run-rook.sh phone
+./scripts/run-rook.sh stop   # shut down server + launched app(s)
+```
+
+`run-rook.sh sim` starts the server if needed, regenerates the Xcode project from `project.yml`, rebuilds incrementally, installs the fresh app into the selected simulator, and launches it with `ROOK_SERVER_BASE_URL=http://127.0.0.1:3000`.
+
+`run-rook.sh phone` does the same for a paired physical iPhone, defaulting the app's server address to your Mac's LAN IP (`http://<your-mac-lan-ip>:3000`). It intentionally does **not** hardcode a development team into `project.yml`; pass `--team` / `ROOK_IOS_DEVELOPMENT_TEAM` when needed, or let the script auto-detect your local team for personal use.
+
+Manual steps:
+
 ```zsh
 # 1. Start the Agent Station server (skip if already running)
 cd <path-to-rookery>        # the repo root
@@ -143,10 +157,7 @@ xcodebuild -project Rook.xcodeproj -scheme Rook \
 #    iPhone 14 Pro or newer simulator.
 ```
 
-For a **physical device** on the LAN, set the base URL to the Mac's LAN IP. The
-base URL is stored in `UserDefaults` (`RookModel.baseURLString`); the
-`NSAllowsLocalNetworking` ATS exception in `Info.plist` permits the cleartext
-LAN connection.
+For a **physical device** on the LAN, the launcher script sets the base URL for you at launch time. If you run manually, set the base URL to the Mac's LAN IP. The base URL is stored in `UserDefaults` (`RookModel.baseURLString`) and can also be overridden at launch with `ROOK_SERVER_BASE_URL`; the `NSAllowsLocalNetworking` ATS exception in `Info.plist` permits the cleartext LAN connection.
 
 ### Verifying location → skills on the simulator
 

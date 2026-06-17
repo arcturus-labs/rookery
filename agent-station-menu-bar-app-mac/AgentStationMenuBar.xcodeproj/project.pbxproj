@@ -162,9 +162,10 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = AA1E49DB37EE969F7ED96AF6 /* Build configuration list for PBXProject "AgentStationMenuBar" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -177,6 +178,7 @@
 				04C0B316E8632270B4044B94 /* XCLocalSwiftPackageReference "../RookKit" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 6531BA041A16E45440F35492 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
