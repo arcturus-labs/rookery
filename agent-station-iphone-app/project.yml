@@ -20,6 +20,7 @@ targets:
       - path: Sources
     dependencies:
       - package: RookKit
+      - target: RookWidgets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rookery.Rook
@@ -28,6 +29,22 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: "NO"
         ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+  RookWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: RookWidgets
+    dependencies:
+      - package: RookKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rookery.Rook.RookWidgets
+        PRODUCT_NAME: RookWidgets
+        INFOPLIST_FILE: RookWidgets/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: "NO"
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+        SWIFT_VERSION: "5.9"
 schemes:
   Rook:
     build:

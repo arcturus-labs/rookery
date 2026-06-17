@@ -1,3 +1,4 @@
+import ActivityKit
 import Foundation
 import RookKit
 import SwiftUI
@@ -55,6 +56,9 @@ final class RookModel: ObservableObject {
     @Published var voicePartial = ""
     private var voiceModeEnabled = false   // speak the reply when the prompt came by voice
     private var spokenTurnBuffer = ""
+
+    // Live Activity (Dynamic Island)
+    private var liveActivity: Activity<RookActivityAttributes>?
 
     // Server address (configurable for a physical device on the LAN; the
     // simulator reaches the Mac's localhost directly).
@@ -141,6 +145,36 @@ final class RookModel: ObservableObject {
         voice.stopSpeaking()
     }
 
+    // MARK: - Live Activity (Dynamic Island)
+
+    /// Start the activity when a session is active; update it on meaningful
+    /// transitions (place, agent status). `Activity.request` is foreground-only,
+    /// so this is called from the running app; APNs-driven updates while away
+    /// are a post-MVP addition.
+    func updateLiveActivity() {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            return
+        }
+        let state = RookActivityAttributes.ContentState(
+            placeName: currentPlaceName,
+            skillsActive: placeEnvironmentId != nil,
+            agentStatus: isRunning ? (statusLine.isEmpty ? "Working…" : statusLine) : "Idle",
+            running: isRunning
+        )
+        if let activity = liveActivity {
+            Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
+        } else if currentSession != nil {
+            let attributes = RookActivityAttributes(agentName: currentSession?.agent ?? "Rook")
+            liveActivity = try? Activity.request(attributes: attributes, content: ActivityContent(state: state, staleDate: nil))
+        }
+    }
+
+    func endLiveActivity() {
+        let activity = liveActivity
+        liveActivity = nil
+        Task { await activity?.end(nil, dismissalPolicy: .immediate) }
+    }
+
     /// Typed messages should not be spoken back.
     func sendTyped(_ text: String) {
         voiceModeEnabled = false
@@ -170,6 +204,7 @@ final class RookModel: ObservableObject {
         }
         let previous = placeEnvironmentId
         placeEnvironmentId = envId
+        updateLiveActivity()
         Task {
             if let previous {
                 try? await api.markEnvironmentUnavailable(id: previous)
@@ -352,12 +387,14 @@ final class RookModel: ObservableObject {
             appendBlock(.system(text: "Resumed session — earlier messages aren't replayed."))
         }
         socket.connect(sessionId: session.id, webSocketURL: api.webSocketURL)
+        updateLiveActivity()
     }
 
     func leaveChat() {
         socket.disconnect()
         reconnectTask?.cancel()
         currentSession = nil
+        endLiveActivity()
     }
 
     // MARK: - Chat
@@ -402,6 +439,7 @@ final class RookModel: ObservableObject {
         statusLine = "Agent is working…"
         spokenTurnBuffer = ""
         socket.sendPrompt(text: text)
+        updateLiveActivity()
     }
 
     private func deliverNextQueuedIfIdle() {
@@ -536,6 +574,7 @@ final class RookModel: ObservableObject {
                 voice.speak(spokenTurnBuffer)
             }
             spokenTurnBuffer = ""
+            updateLiveActivity()
             deliverNextQueuedIfIdle()
         case .runFailed(let message):
             finalizeStreamingBlocks()
@@ -548,6 +587,7 @@ final class RookModel: ObservableObject {
             } else {
                 appendErrorBlock(source: "run", message: message)
             }
+            updateLiveActivity()
             deliverNextQueuedIfIdle()
         case .protocolError(let message):
             appendErrorBlock(source: "protocol", message: message)
