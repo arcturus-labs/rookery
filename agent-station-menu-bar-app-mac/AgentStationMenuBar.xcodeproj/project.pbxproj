@@ -17,7 +17,6 @@
 		62F792A4BB11B1532FC83A92 /* AgentStationMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC502CF4A2C236C14ED9699 /* AgentStationMenuView.swift */; };
 		70870F01E8243EDFBB3969AE /* HotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF8D23EC102A118F55B2C3B6 /* HotKey.swift */; };
 		7BCFCDD5525379A1346E0D06 /* AgentStationMenuBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85789DA4FC9AF18BF856AC0 /* AgentStationMenuBarApp.swift */; };
-		8238B67CD800928945EDBCAA /* VoiceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E653A9EE4D362F78F1994C /* VoiceController.swift */; };
 		84BE433C9AF6C6B230C57083 /* ScreenCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F31550B0FC16B45A28AC6A8 /* ScreenCapturer.swift */; };
 		89F7CFCF7CC7ADB692165339 /* ScreenOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D6061688BD621BFB9EE467 /* ScreenOCR.swift */; };
 		9C5B9AF806C990D34784B1F5 /* RookKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2D5F19A409874674241A5290 /* RookKit */; };
@@ -42,7 +41,6 @@
 		B29D631BD7FB343852A8868D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		C70105DE8F79656AA46C1D8D /* AgentStationMenuBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AgentStationMenuBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E85789DA4FC9AF18BF856AC0 /* AgentStationMenuBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStationMenuBarApp.swift; sourceTree = "<group>"; };
-		F1E653A9EE4D362F78F1994C /* VoiceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceController.swift; sourceTree = "<group>"; };
 		F3623927C6A687804E503EBD /* AgentStationMenuBar.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AgentStationMenuBar.entitlements; sourceTree = "<group>"; };
 		F986D20F42993AC8162A32D1 /* AgentStationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStationModel.swift; sourceTree = "<group>"; };
 		FF8D23EC102A118F55B2C3B6 /* HotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKey.swift; sourceTree = "<group>"; };
@@ -90,7 +88,6 @@
 				12D6061688BD621BFB9EE467 /* ScreenOCR.swift */,
 				12CFA614EF2FB8F0294B9AA1 /* ServerController.swift */,
 				7B7C7467689A6968FCF1CD78 /* SiteRegistry.swift */,
-				F1E653A9EE4D362F78F1994C /* VoiceController.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -208,7 +205,6 @@
 				89F7CFCF7CC7ADB692165339 /* ScreenOCR.swift in Sources */,
 				A08FF032D5689105E28BC656 /* ServerController.swift in Sources */,
 				0A0B574B5D1329B7F84E21D0 /* SiteRegistry.swift in Sources */,
-				8238B67CD800928945EDBCAA /* VoiceController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
