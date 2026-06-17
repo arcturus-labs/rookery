@@ -1,6 +1,6 @@
 # Rook for iPhone (native SwiftUI)
 
-A native iOS app that makes [Agent Station](../README.md) **location-aware**: as
+A native iOS app that makes [Rook](../../README.md) **location-aware**: as
 you arrive at a place you've defined, Rook registers `place:<slug>` with the
 server and the agent gains that place's skills — the physical-location analog of
 the Chrome extension's `web:<slug>` and the Mac menu bar app's `app:<slug>`.
@@ -146,7 +146,7 @@ npm run dev
 # verify: curl http://127.0.0.1:3000/api/health  ->  {"ok":true,...}
 
 # 2. Generate the Xcode project and build for a simulator
-cd agent-station-iphone-app
+cd clients/iphone
 xcodegen generate
 xcodebuild -project Rook.xcodeproj -scheme Rook \
   -configuration Debug -sdk iphonesimulator \
@@ -202,7 +202,7 @@ the **Device → Home** (⇧⌘H) gesture:
 The MVP targets the local Mac dev server, unauthenticated, on the LAN. True
 away-from-home presence (push-to-start Live Activities and remote updates while
 the app is closed) needs a hosted server + APNs + Sign in with Apple — see
-[`PRODUCT/research/rook-on-iphone.md`](../PRODUCT/research/rook-on-iphone.md)
+[`PRODUCT_CHANGES/research/rook-on-iphone.md`](../../PRODUCT_CHANGES/research/rook-on-iphone.md)
 Phase 3. `Sources/Rook.entitlements` carries the `aps-environment` entitlement as
 scaffolding for that device/push work; it is inert on the unsigned simulator
 build and does nothing without the server-side push pipeline.

@@ -3,4 +3,4 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-( cd client && npm install )
+( cd clients/web-client && npm install )

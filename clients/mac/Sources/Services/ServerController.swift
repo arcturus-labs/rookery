@@ -10,7 +10,7 @@ final class ServerController {
     private var process: Process?
 
     /// The rookery repo root. This source file lives at
-    /// `<repo>/agent-station-menu-bar-app-mac/Sources/Services/ServerController.swift`,
+    /// `<repo>/clients/mac/Sources/Services/ServerController.swift`,
     /// so walk four directories up; a `RookeryRepoRoot` default overrides it.
     static var repoRoot: URL {
         if let override = UserDefaults.standard.string(forKey: "RookeryRepoRoot"), !override.isEmpty {

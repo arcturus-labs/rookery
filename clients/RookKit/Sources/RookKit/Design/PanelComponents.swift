@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 #endif
 
-/// Design tokens lifted from the Agent Station web client (`client/`) to keep
+/// Design tokens lifted from the web client (`clients/web-client/`) to keep
 /// the native and web UIs visually consistent. Shared by the macOS menu-bar app
 /// and the iOS app.
 public enum PanelPalette {

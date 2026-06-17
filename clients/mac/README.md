@@ -1,10 +1,10 @@
 # Agent Station Menu Bar (macOS)
 
-A native SwiftUI menu bar client for [Agent Station](../README.md) — talk to
+A native SwiftUI menu bar client for [Rook](../../README.md) — talk to
 your Pi / Claude / Cursor agents from the macOS menu bar. The panel layout and
 interaction model (slide-in detail views, hover affordances) follow the Stoa
-Scribe menu bar app; the visual design tokens are lifted from the Agent
-Station web client (`client/`) so the two clients share one look. Functionality
+Scribe menu bar app; the visual design tokens are lifted from the web client
+(`clients/web-client/`) so the two clients share one look. Functionality
 is the full Agent Station embeddable
 client, implemented natively against the server's REST + ACP JSON-RPC
 WebSocket protocol.
@@ -218,7 +218,7 @@ npm run dev
 # verify: curl http://127.0.0.1:3000/api/health  ->  {"ok":true,...}
 
 # 2. Generate the Xcode project and build the app
-cd agent-station-menu-bar-app-mac
+cd clients/mac
 xcodegen generate
 xcodebuild -project AgentStationMenuBar.xcodeproj \
   -scheme AgentStationMenuBar -configuration Debug build

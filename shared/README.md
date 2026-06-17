@@ -7,4 +7,4 @@ Current scope:
 - environment DTOs
 - agent/session DTOs
 
-This directory is intentionally small for now. UI code stays in `client/`; server runtime code stays in `server/`.
+This directory is intentionally small for now. UI code stays in `clients/web-client/`; server runtime code stays in `server/`.

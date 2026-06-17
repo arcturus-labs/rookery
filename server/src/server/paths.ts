@@ -62,7 +62,7 @@ export const SERVER_ROOT = findServerRoot(serverDir);
 /** Monorepo root (parent of `server/`). */
 export const REPO_ROOT = findRepoRoot(SERVER_ROOT);
 
-const preferredClientRoot = path.join(REPO_ROOT, "client");
+const preferredClientRoot = path.join(REPO_ROOT, "clients", "web-client");
 
 /** Preferred shared web client package root. Falls back to the server package root. */
 export const CLIENT_ROOT = existsSync(path.join(preferredClientRoot, "package.json"))

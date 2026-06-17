@@ -1,4 +1,4 @@
-# Rook client
+# Rook web client
 
 Prototype shared UI package for the future cross-platform Rook client.
 
@@ -10,7 +10,7 @@ Prototype shared UI package for the future cross-platform Rook client.
 
 ## Install
 ```bash
-cd client && npm install
+cd clients/web-client && npm install
 ```
 
 You still also need the backend package installed:

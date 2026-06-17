@@ -30,7 +30,7 @@ enum SiteRegistry {
         guard let host = URLComponents(string: url)?.host?.lowercased() else {
             return nil
         }
-        let registryURL = repoRoot.appending(path: "agent-station-chrome-extension/site-registry.json")
+        let registryURL = repoRoot.appending(path: "clients/chrome/site-registry.json")
         guard let data = try? Data(contentsOf: registryURL),
               let file = try? JSONDecoder().decode(RegistryFile.self, from: data),
               let sites = file.sites else {

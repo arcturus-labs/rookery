@@ -378,7 +378,7 @@ print("\\n".join(ids))
 
 build_mac() {
   need_cmd xcodebuild
-  local app_dir="$REPO_ROOT/agent-station-menu-bar-app-mac"
+  local app_dir="$REPO_ROOT/clients/mac"
   local proj="$app_dir/AgentStationMenuBar.xcodeproj"
   local derived="$BUILD_ROOT/AgentStationMenuBar"
   ensure_xcode_project "$app_dir" "$proj"
@@ -412,7 +412,7 @@ build_sim() {
   fi
   xcrun simctl bootstatus "$sim_udid" -b >/dev/null
 
-  local app_dir="$REPO_ROOT/agent-station-iphone-app"
+  local app_dir="$REPO_ROOT/clients/iphone"
   local proj="$app_dir/Rook.xcodeproj"
   local derived="$BUILD_ROOT/Rook-sim"
   ensure_xcode_project "$app_dir" "$proj"
@@ -453,7 +453,7 @@ build_phone() {
   [[ -n "$lan_ip" ]] || die "could not determine your Mac's LAN IP for the phone"
   local url="${SERVER_URL:-http://${lan_ip}:${SERVER_PORT}}"
 
-  local app_dir="$REPO_ROOT/agent-station-iphone-app"
+  local app_dir="$REPO_ROOT/clients/iphone"
   local proj="$app_dir/Rook.xcodeproj"
   local derived="$BUILD_ROOT/Rook-phone"
   ensure_xcode_project "$app_dir" "$proj"

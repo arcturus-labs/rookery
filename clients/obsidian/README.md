@@ -13,9 +13,9 @@ You do **not** need to know the lower-level messaging details to use or develop 
 This plugin gives you an in-Obsidian entry point for chatting with your agent without leaving your notes workflow.
 
 - Open a sidebar chat panel directly in Obsidian
-- Reuse the existing Agent Station web client (`client/`) UI and runtime behavior
+- Reuse the existing web client (`clients/web-client/`) UI and runtime behavior
 - Keep Obsidian plugin logic thin (view/container shell)
-- Iterate quickly on agent UX in one place (`client/`)
+- Iterate quickly on agent UX in one place (`clients/web-client/`)
 
 In short: **Obsidian provides the host panel; the Agent Station web client provides the actual app experience.**
 
@@ -32,7 +32,7 @@ That’s the architectural contract for now.
 
 Today, the Obsidian plugin itself is intentionally minimal:
 
-- `agent-station-obsidian-extension/src/main.ts` creates the iframe and points it at localhost
+- `clients/obsidian/src/main.ts` creates the iframe and points it at localhost
 - It does **not** implement a custom message bus in the plugin shell yet
 
 Cross-window messaging is handled inside the web client when needed:
@@ -40,14 +40,14 @@ Cross-window messaging is handled inside the web client when needed:
 - during agent runs, a special tool call (`message_parent`) can relay JSON payloads to the parent window via `postMessage`
 - environment availability is now modeled through the server-side `EnvironmentManager`, not a client-side skill-injection flow
 
-So at a practical level: the plugin hosts the iframe; the iframe app (the Agent Station web client) owns runtime chat behavior and any parent-window messaging.
+So at a practical level: the plugin hosts the iframe; the iframe app (the web client) owns runtime chat behavior and any parent-window messaging.
 
 ## Monorepo context
 
-Part of the [agent-station](../README.md) monorepo.
+Part of the [Rook](../../README.md) monorepo.
 
-- `agent-station-obsidian-extension/` has its own `package.json` and `node_modules`
-- `server/` serves the web UI (`client/`) loaded by the iframe
+- `clients/obsidian/` has its own `package.json` and `node_modules`
+- `server/` serves the web UI (`clients/web-client/`) loaded by the iframe
 - the main app should be running at `http://127.0.0.1:3000`
 
 ## Development

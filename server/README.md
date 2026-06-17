@@ -15,10 +15,10 @@ npm install
 npm run dev
 ```
 
-Also install the new root client package once:
+Also install the web client package once:
 
 ```bash
-cd ../client && npm install
+cd ../clients/web-client && npm install
 ```
 
 Or from the repo root:
@@ -121,7 +121,7 @@ Terse map of `src/`:
 - **Styling**: `styles/*`
 - **Client tests**: `*.test.ts(x)` files in `src/client`
 
-This UI is being replaced by the new root-level [`../client`](../client/) package. During this migration phase, this package still contains the older browser client source for reference and tests, but the Fastify app now prefers serving the new root `client/` package when it exists.
+This UI is being replaced by the root-level [`../clients/web-client`](../clients/web-client/) package. During this migration phase, this package still contains the older browser client source for reference and tests, but the Fastify app now prefers serving the new root `clients/web-client/` package when it exists.
 
 ## `src/server` (Fastify backend)
 

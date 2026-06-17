@@ -13,7 +13,7 @@ Rookery is a local-first monorepo centered on one service at `127.0.0.1:3000`:
 - a **WebSocket ACP bridge** to agent runtimes
 - an **environment manager** that can hot-load environment-linked skills into a session
 
-The repo is organized into focused top-level packages: `client/`, `server/`, `shared/`, and extension packages.
+The repo is organized into focused top-level packages: `server/`, `shared/`, and a `clients/` directory holding the web, browser/plugin, and native app packages.
 
 ## 2. Top-level shape
 
@@ -37,9 +37,9 @@ server/ (Fastify)
         ├─ CursorAgent
         └─ generic ACP agent
 
-shared/  ← cross-package contracts: ACP types, environment DTOs, agent/session DTOs
-client/  ← React Native web UI
-RookKit/ ← shared Swift package (iOS + macOS) backing the two native Swift clients
+shared/            ← cross-package TypeScript contracts: ACP types, environment DTOs, agent/session DTOs
+clients/web-client ← React Native web UI
+clients/RookKit    ← shared Swift package (iOS + macOS) backing the two native Swift clients
 ```
 
 ## 3. Core architectural idea
@@ -65,13 +65,13 @@ See also: [`PRODUCT/agent-client-protocol.md`](./agent-client-protocol.md)
 | Package | Current role |
 |---|---|
 | `server/` | Main backend at `:3000`; server, runtime orchestration, environment approvals |
-| `client/` | React Native web UI |
-| `shared/` | Cross-package ACP types, environment DTOs, agent/session contracts |
-| `agent-station-chrome-extension/` | Chrome MV3 environment provider (`web:<slug>`) |
-| `agent-station-obsidian-extension/` | Obsidian host embedding the main app |
-| `agent-station-menu-bar-app-mac/` | Native macOS client and environment provider (`app:<slug>`) |
-| `agent-station-iphone-app/` | Native iOS client and location environment provider (`place:<slug>`) |
-| `RookKit/` | Shared Swift package (iOS + macOS) backing both native Swift clients |
+| `shared/` | Cross-package TypeScript ACP types, environment DTOs, agent/session contracts |
+| `clients/web-client/` | React Native web UI |
+| `clients/chrome/` | Chrome MV3 environment provider (`web:<slug>`) |
+| `clients/obsidian/` | Obsidian host embedding the main app |
+| `clients/mac/` | Native macOS client and environment provider (`app:<slug>`) |
+| `clients/iphone/` | Native iOS client and location environment provider (`place:<slug>`) |
+| `clients/RookKit/` | Shared Swift package (iOS + macOS) backing both native Swift clients |
 | `environment-repository/` | Local environment skill bundles keyed by `<kind>/<path>` |
 | `PRODUCT/` | Product and architecture notes |
 
@@ -231,16 +231,16 @@ That remains consistent with:
 
 ### 7.1 Web client
 
-The browser app is a React Native SPA in `client/`, served via `react-native-web` + Vite.
+The browser app is a React Native SPA in `clients/web-client/`, served via `react-native-web` + Vite.
 
 Main responsibilities are unchanged: agent selection, session lifecycle, ACP websocket communication, streaming conversation rendering, tool/permission/plan/usage/mode/config handling, queued messages, and environment approval UI.
 
 The client is structured around:
-- extracted session state layer (`client/src/session/`)
+- extracted session state layer (`clients/web-client/src/session/`)
 - platform-adaptive rendering seams (markdown, controls)
-- presentational block components (`client/src/components/blocks/`)
+- presentational block components (`clients/web-client/src/components/blocks/`)
 
-`RemoteAgent` remains the transport layer, now living under `client/src/lib/`.
+`RemoteAgent` remains the transport layer, now living under `clients/web-client/src/lib/`.
 
 ### 7.2 Other clients/providers
 
@@ -249,9 +249,9 @@ Current ecosystem around `:3000`:
 - **Chrome extension**: detects supported web contexts and registers `web:<slug>` environments
 - **Obsidian plugin**: embeds the app in a sidebar view
 - **macOS menu bar app**: native SwiftUI client with the same backend; also registers `app:<slug>` environments for the frontmost Mac app
-- **iPhone app**: native SwiftUI client that registers `place:<slug>` environments from GPS geofences, making the agent location-aware (skills load as you arrive at a defined place). Adds Live Activity / Dynamic Island presence and on-device voice. See [`PRODUCT/research/rook-on-iphone.md`](./research/rook-on-iphone.md) for the iOS sandbox constraints and the hosted-server/APNs follow-up.
+- **iPhone app**: native SwiftUI client that registers `place:<slug>` environments from GPS geofences, making the agent location-aware (skills load as you arrive at a defined place). Adds Live Activity / Dynamic Island presence and on-device voice. See [`PRODUCT_CHANGES/research/rook-on-iphone.md`](../PRODUCT_CHANGES/research/rook-on-iphone.md) for the iOS sandbox constraints and the hosted-server/APNs follow-up.
 
-The two native Swift clients share one cross-platform layer — models, the REST/ACP-WebSocket clients, the design system and chat-block views, voice, and Live Activity attributes — through the `RookKit` Swift package, so they stay protocol- and design-consistent with a single source of truth.
+The two native Swift clients share one cross-platform layer — models, the REST/ACP-WebSocket clients, the design system and chat-block views, voice, and Live Activity attributes — through the `clients/RookKit` Swift package, so they stay protocol- and design-consistent with a single source of truth.
 
 ## 8. Live message flow
 
@@ -351,7 +351,7 @@ Important files:
 - `shared/src/agent.ts` — session metadata and agent-facing shared types
 - `shared/src/environment.ts` — environment ids, decisions, and preview types
 
-Both `client/` and `server/` import from `shared/`. The `server/` package retains a few locally-scoped shared types (`realtime.ts`, `environmentSkillPreview.ts`) that carry server-side logic.
+Both `clients/web-client/` and `server/` import from `shared/`. The `server/` package retains a few locally-scoped shared types (`realtime.ts`, `environmentSkillPreview.ts`) that carry server-side logic.
 
 ## 12. Architecture constraints that matter right now
 
