@@ -9,6 +9,7 @@ import Foundation
 @MainActor
 final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDelegate {
     var onRegionChange: ((Place?) -> Void)?
+    var onVisitArrival: ((CLLocationCoordinate2D) -> Void)?
 
     @Published private(set) var authorizationStatus: CLAuthorizationStatus
     @Published private(set) var currentLocation: CLLocation?
@@ -43,6 +44,12 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
 
     func requestCurrentLocation() {
         manager.requestLocation()
+    }
+
+    /// CLVisit-based "where you spend time" detection (Phase E). Fires
+    /// `onVisitArrival` when you settle at a place — used to suggest naming it.
+    func startMonitoringVisits() {
+        manager.startMonitoringVisits()
     }
 
     /// (Re)build the monitored geofences from the user's places.
@@ -120,6 +127,17 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
         }
         Task { @MainActor in
             currentLocation = last
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
+        // departureDate == distantFuture ⇒ an arrival (you're still here).
+        guard visit.departureDate == Date.distantFuture else {
+            return
+        }
+        let coordinate = visit.coordinate
+        Task { @MainActor in
+            onVisitArrival?(coordinate)
         }
     }
 

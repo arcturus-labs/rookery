@@ -18,6 +18,7 @@ struct PlacesScreen: View {
                         } else {
                             addCard
                         }
+                        suggestionsList
                         placesList
                         Text("Define a place here, and create a matching skill bundle on the server at environment-repository/place/<slug>/. When you arrive, Rook offers that place's skills.")
                             .font(.caption2)
@@ -94,6 +95,26 @@ struct PlacesScreen: View {
         }
     }
 
+    private var suggestionsList: some View {
+        Group {
+            if !model.placeStore.suggestions.isEmpty {
+                PanelCard {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(PanelPalette.accentHover)
+                        Text("PLACES YOU FREQUENT")
+                            .font(.system(size: 10, weight: .semibold))
+                            .kerning(0.6)
+                            .foregroundStyle(PanelPalette.textMuted)
+                    }
+                    ForEach(model.placeStore.suggestions) { suggestion in
+                        SuggestionRow(model: model, suggestion: suggestion, radius: radius)
+                    }
+                }
+            }
+        }
+    }
+
     private var placesList: some View {
         Group {
             if model.placeStore.places.isEmpty {
@@ -145,5 +166,58 @@ struct PlacesScreen: View {
         )
         model.refreshMonitoredPlaces()
         newName = ""
+    }
+}
+
+private struct SuggestionRow: View {
+    @ObservedObject var model: RookModel
+    let suggestion: PlaceSuggestion
+    let radius: Double
+    @State private var name = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "mappin.circle")
+                    .foregroundStyle(PanelPalette.accentHover)
+                Text("You've been here \(suggestion.visitCount)×")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(PanelPalette.textNormal)
+                Spacer()
+                Button {
+                    model.placeStore.dismissSuggestion(suggestion)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundStyle(PanelPalette.textMuted)
+                }
+            }
+            Text(String(format: "%.4f, %.4f", suggestion.latitude, suggestion.longitude))
+                .font(.caption2.monospaced())
+                .foregroundStyle(PanelPalette.textMuted)
+            HStack(spacing: 8) {
+                TextField("Name this place", text: $name)
+                    .textInputAutocapitalization(.words)
+                    .foregroundStyle(PanelPalette.textNormal)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(PanelPalette.backgroundPrimary.opacity(0.8)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PanelPalette.border))
+                Button {
+                    model.placeStore.promoteSuggestion(suggestion, name: name, radius: radius)
+                    model.refreshMonitoredPlaces()
+                } label: {
+                    Text("Add")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(PanelPalette.accent))
+                }
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+            }
+        }
+        .padding(.vertical, 6)
     }
 }

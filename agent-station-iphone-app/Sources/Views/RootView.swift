@@ -3,6 +3,8 @@ import SwiftUI
 
 struct RootView: View {
     @ObservedObject var model: RookModel
+    // Test hook: ROOK_SHOW_PLACES opens the Places screen on launch.
+    @State private var showPlaces = ProcessInfo.processInfo.environment["ROOK_SHOW_PLACES"] != nil
 
     var body: some View {
         ZStack {
@@ -21,6 +23,9 @@ struct RootView: View {
             set: { if !$0 { model.clearOffer() } }
         )) {
             EnvironmentOfferSheet(model: model)
+        }
+        .sheet(isPresented: $showPlaces) {
+            PlacesScreen(model: model)
         }
     }
 }

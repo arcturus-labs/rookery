@@ -93,7 +93,13 @@ final class RookModel: ObservableObject {
         locationProvider.onRegionChange = { [weak self] place in
             self?.handlePlace(place)
         }
+        locationProvider.onVisitArrival = { [weak self] coord in
+            self?.placeStore.recordVisit(latitude: coord.latitude, longitude: coord.longitude)
+        }
         locationProvider.updateMonitoredPlaces(placeStore.places)
+        if locationProvider.isAuthorized {
+            locationProvider.startMonitoringVisits()
+        }
         setupVoice()
         Task {
             await refreshHealth()
@@ -186,6 +192,7 @@ final class RookModel: ObservableObject {
     func enableLocation() {
         locationProvider.requestAuthorization()
         refreshMonitoredPlaces()
+        locationProvider.startMonitoringVisits()
     }
 
     func refreshMonitoredPlaces() {
