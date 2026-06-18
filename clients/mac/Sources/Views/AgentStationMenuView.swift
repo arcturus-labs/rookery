@@ -60,7 +60,7 @@ struct AgentStationMenuView: View {
     }
 
     private var measurementContent: some View {
-        baseContent
+        measurementBaseContent
             .fixedSize(horizontal: false, vertical: true)
             .background(
                 GeometryReader { proxy in
@@ -80,7 +80,24 @@ struct AgentStationMenuView: View {
             case .sessions(let agentId):
                 SessionsDetail(model: model, agentId: agentId)
             case .chat:
-                ChatDetail(model: model)
+                ChatDetail(model: model, elasticThreadCard: true, measurementMode: false)
+            case .environmentOffer:
+                EnvironmentOfferDetail(model: model)
+            case .capabilities:
+                CapabilitiesDetail(model: model)
+            }
+        }
+    }
+
+    private var measurementBaseContent: some View {
+        ZStack(alignment: .topLeading) {
+            switch model.panelMode {
+            case .home:
+                HomeContent(model: model)
+            case .sessions(let agentId):
+                SessionsDetail(model: model, agentId: agentId)
+            case .chat:
+                ChatDetail(model: model, elasticThreadCard: false, measurementMode: true)
             case .environmentOffer:
                 EnvironmentOfferDetail(model: model)
             case .capabilities:

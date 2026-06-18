@@ -5,6 +5,8 @@ import SwiftUI
 
 struct ChatDetail: View {
     @ObservedObject var model: AgentStationModel
+    var elasticThreadCard = true
+    var measurementMode = false
     @State private var draft = ""
     @State private var isHoveringSend = false
     @State private var settingsExpanded = false
@@ -68,7 +70,10 @@ struct ChatDetail: View {
 
     private var threadCard: some View {
         PanelCard {
-            if model.blocks.isEmpty {
+            if measurementMode {
+                Color.clear
+                    .frame(maxWidth: .infinity, minHeight: 260)
+            } else if model.blocks.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "bird")
                         .font(.system(size: 20, weight: .semibold))
@@ -103,7 +108,7 @@ struct ChatDetail: View {
                         }
                     })
                     .scrollIndicators(.visible)
-                    .frame(minHeight: 260, maxHeight: .infinity)
+                    .frame(minHeight: 260, idealHeight: 340, maxHeight: elasticThreadCard ? .infinity : 340)
                     .onAppear {
                         proxy.scrollTo("chat-bottom", anchor: .bottom)
                     }

@@ -99,18 +99,32 @@ private struct AssistantTextBlockView: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
-                Markdown(text)
-                    .markdownTheme(.gitHub)
-                    .foregroundStyle(.white)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if streaming {
+                    Text(text)
+                        .font(.callout)
+                        .foregroundStyle(PanelPalette.textNormal)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Markdown(text)
+                        .markdownTheme(rookAssistantMarkdownTheme)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 if streaming {
                     StreamingIndicator()
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(bubbleShape(tailAt: .bottomLeading).fill(PanelPalette.accent))
+            .background(
+                bubbleShape(tailAt: .bottomLeading)
+                    .fill(PanelPalette.backgroundPrimary.opacity(0.75))
+            )
+            .overlay(
+                bubbleShape(tailAt: .bottomLeading)
+                    .strokeBorder(PanelPalette.border)
+            )
             Spacer(minLength: 48)
         }
     }
@@ -398,6 +412,148 @@ private struct PlanBlockView: View {
         }
     }
 }
+
+private let rookAssistantMarkdownTheme = Theme()
+    .text {
+        ForegroundColor(PanelPalette.textNormal)
+        BackgroundColor(nil)
+        FontSize(13)
+    }
+    .strong {
+        FontWeight(.semibold)
+    }
+    .emphasis {
+        FontStyle(.italic)
+    }
+    .code {
+        FontFamilyVariant(.monospaced)
+        FontSize(13)
+        ForegroundColor(PanelPalette.textNormal)
+        BackgroundColor(PanelPalette.hover)
+    }
+    .link {
+        ForegroundColor(PanelPalette.accentHover)
+    }
+    .heading1 { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.textNormal)
+                FontWeight(.semibold)
+                FontSize(22)
+            }
+            .markdownMargin(top: 0, bottom: 10)
+    }
+    .heading2 { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.textNormal)
+                FontWeight(.semibold)
+                FontSize(18)
+            }
+            .markdownMargin(top: 0, bottom: 8)
+    }
+    .heading3 { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.textNormal)
+                FontWeight(.semibold)
+                FontSize(15)
+            }
+            .markdownMargin(top: 0, bottom: 8)
+    }
+    .heading4 { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.textNormal)
+                FontWeight(.semibold)
+                FontSize(13)
+            }
+            .markdownMargin(top: 0, bottom: 6)
+    }
+    .heading5 { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.textNormal)
+                FontWeight(.semibold)
+                FontSize(13)
+            }
+            .markdownMargin(top: 0, bottom: 6)
+    }
+    .heading6 { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.secondaryText)
+                FontWeight(.semibold)
+                FontSize(12)
+            }
+            .markdownMargin(top: 0, bottom: 6)
+    }
+    .paragraph { configuration in
+        configuration.label
+            .fixedSize(horizontal: false, vertical: true)
+            .markdownMargin(top: 0, bottom: 8)
+    }
+    .blockquote { configuration in
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(PanelPalette.border)
+                .frame(width: 3)
+            configuration.label
+                .markdownTextStyle {
+                    ForegroundColor(PanelPalette.textNormal)
+                    BackgroundColor(nil)
+                }
+                .padding(.leading, 10)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .codeBlock { configuration in
+        ScrollView(.horizontal) {
+            configuration.label
+                .fixedSize(horizontal: false, vertical: true)
+                .markdownTextStyle {
+                    FontFamilyVariant(.monospaced)
+                    FontSize(12)
+                    ForegroundColor(PanelPalette.textNormal)
+                    BackgroundColor(nil)
+                }
+                .padding(12)
+        }
+        .background(PanelPalette.hover)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .markdownMargin(top: 0, bottom: 8)
+    }
+    .listItem { configuration in
+        configuration.label
+            .markdownMargin(top: 2, bottom: 2)
+    }
+    .table { configuration in
+        configuration.label
+            .fixedSize(horizontal: false, vertical: true)
+            .markdownTableBorderStyle(.init(color: PanelPalette.border))
+            .markdownTableBackgroundStyle(
+                .alternatingRows(PanelPalette.backgroundPrimary.opacity(0.35), PanelPalette.hover.opacity(0.5))
+            )
+            .markdownMargin(top: 0, bottom: 8)
+    }
+    .tableCell { configuration in
+        configuration.label
+            .markdownTextStyle {
+                ForegroundColor(PanelPalette.textNormal)
+                if configuration.row == 0 {
+                    FontWeight(.semibold)
+                }
+                BackgroundColor(nil)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+    }
+    .thematicBreak {
+        Divider()
+            .overlay(PanelPalette.border)
+            .markdownMargin(top: 12, bottom: 12)
+    }
 
 private struct StreamingIndicator: View {
     @State private var pulsing = false
