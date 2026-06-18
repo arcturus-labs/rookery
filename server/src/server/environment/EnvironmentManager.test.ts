@@ -57,6 +57,17 @@ describe("EnvironmentManager", () => {
     expect(listener.onEnvironmentOffered).toHaveBeenCalledWith("web:wikipedia", {});
   });
 
+  it("does not offer an environment with no skill paths", async () => {
+    const manager = newManager([]);
+    const listener = mockListener();
+    manager.subscribe("s1", listener);
+
+    await manager.registerAvailableEnvironment({ id: "web:wikipedia", metadata: {} }, { sourceName: "Wikipedia" });
+
+    expect(listener.onEnvironmentOffered).not.toHaveBeenCalled();
+    expect(listener.onEnvironmentEntered).not.toHaveBeenCalled();
+  });
+
   it("does NOT re-offer a previously-known environment once it has been unregistered", async () => {
     const manager = newManager();
     await manager.registerAvailableEnvironment({ id: "web:wikipedia", metadata: {} });

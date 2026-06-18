@@ -178,6 +178,10 @@ export class EnvironmentManager {
     const listener = this.listeners.get(sessionId);
     const available = this.available.get(environmentId);
     if (!listener || !available) return;
+    if (available.skillPaths.length === 0) {
+      this.exitForSession(sessionId, environmentId);
+      return;
+    }
 
     switch (this.effectiveDecision(environmentId)) {
       case "approve":
