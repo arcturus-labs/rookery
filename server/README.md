@@ -162,7 +162,7 @@ The goal is not perfect purity yet; this is the direction to follow when adding 
 - `LocalEnvironmentRepository.ts`: maps `<kind>:<path>` environment IDs to skill bundle directories under `environment-repository/` and reads previewable skill files.
 - `EnvironmentDecisionStore.ts`: SQLite-backed store for persistent `approve` / `reject` decisions.
   - Current DB location: `.var/agent-station/environment-decisions.sqlite`
-  - Drop it with `../scripts/drop-database.sh --yes`
+  - Clear it by removing that file
 - `sessionLog.ts`: stores provider/session restart metadata used to recreate stopped rooms.
 
 ### Other server pieces

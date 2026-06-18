@@ -26,6 +26,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Local payload captures
+provider/payload.jsonl
+.pi/provider-payload.jsonl
+
 # Python caches
 __pycache__/
 *.py[cod]

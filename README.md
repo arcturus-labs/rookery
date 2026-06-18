@@ -95,8 +95,12 @@ If you move or rename the sibling package, update `args` in `agent-profiles.json
 - `./scripts/run-rook.sh sim` — start the server if needed, rebuild, and launch the iPhone app in Simulator
 - `./scripts/run-rook.sh phone` — start the server if needed, rebuild, and launch the iPhone app on a paired device
 - `./scripts/run-rook.sh stop` — stop the server, mac app, simulator app, booted simulators, and phone app when reachable
-- `./scripts/inject-environment.sh demo:demo` — manually register an environment
-- `./scripts/drop-database.sh --yes` — drop the current Agent Station SQLite database
+
+## Manual environment/debugging actions
+- Register an environment: `POST /api/environments/register`
+- Mark an environment unavailable: `POST /api/environments/unavailable`
+- Record an environment decision: `POST /api/environments/decision`
+- Clear remembered environment decisions: remove `.var/agent-station/environment-decisions.sqlite`
 
 ## Monorepo notes
 - `server/` currently owns the backend npm deps and lockfile

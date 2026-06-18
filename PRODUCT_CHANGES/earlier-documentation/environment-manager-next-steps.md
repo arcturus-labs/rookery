@@ -27,7 +27,7 @@ The API layer owns agent restart decisions. `approveEnvironment` returns skill p
 ## Scope notes
 
 - **`demo:demo` environment ID** — kind `demo`, path `demo`. Fits the `<kind>:<unique path>` spec. Use the `environment-repository/demo/` directory.
-- **Availability via API** — `POST /api/environments/register` or `./scripts/inject-environment.sh demo:demo` (no built-in timer).
+- **Availability via API** — `POST /api/environments/register` (no built-in timer).
 - **Decision persistence deferred** — no approved/rejected memory yet for environments (and their skills). Every `registerAvailableEnvironment` triggers a fresh pending offer.
 - **`onEnvironmentEntered` is a stub** — skill loading happens ad-hoc via the approve route calling `createOrReuseRoom`. The full `onEnvironmentEntered → room handles it` path comes later.
 - **No duplicate restart logic** — `POST /api/environments/approve` calls the existing `createOrReuseRoom` (same function used by `POST /api/agent/start`). No new restart mechanism.
@@ -64,7 +64,7 @@ The API layer owns agent restart decisions. `approveEnvironment` returns skill p
 - [ ] `subscribe(sessionId, listener)` / `unsubscribe(sessionId)` — per-session `EnvironmentEventListener` registration
 - [ ] `getPendingOffers(sessionId)` — returns pending offers for a session
 - [ ] `approveEnvironment(environmentId, sessionId)` — removes offer from pending; emits `onEnvironmentEntered` on that session's listener (no-op stub for now); returns resolved skill paths to caller
-- [ ] **`POST /api/environments/register { id, metadata? }`** — calls `registerAvailableEnvironment`; see `scripts/inject-environment.sh`
+- [ ] **`POST /api/environments/register { id, metadata? }`** — calls `registerAvailableEnvironment`
 
 ### 5. Wire into server (`index.ts`)
 

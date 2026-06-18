@@ -176,14 +176,16 @@ Test hooks for scripted verification (set as `SIMCTL_CHILD_*` env vars):
 ### Minimizing / backgrounding in the simulator
 
 iOS apps can't background themselves, so to exercise the app-lifecycle paths
-(socket reconnect, place re-announce, Live Activity start-on-foreground) use the
-helper — it foregrounds another app to push Rook to the background, the same as
-the **Device → Home** (⇧⌘H) gesture:
+(socket reconnect, place re-announce, Live Activity start-on-foreground), use
+Simulator's **Device → Home** (⇧⌘H) gesture to send Rook to the background, then
+reopen it from the simulator home screen.
+
+If you want shell equivalents:
 
 ```zsh
-./scripts/sim-rook.sh bg     # minimize Rook (scenePhase → .background)
-./scripts/sim-rook.sh fg     # bring it back (scenePhase → .active)
-./scripts/sim-rook.sh shot   # screenshot the simulator to /tmp/rook.png
+xcrun simctl openurl booted https://example.com   # foreground Safari, backgrounds Rook
+xcrun simctl launch booted com.rookery.Rook       # bring Rook back
+xcrun simctl io booted screenshot /tmp/rook.png   # screenshot the simulator
 ```
 
 ## Capabilities & Info.plist
