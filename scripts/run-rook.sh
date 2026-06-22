@@ -19,15 +19,18 @@ Usage:
   ./scripts/run-rook.sh mac
   ./scripts/run-rook.sh sim [--simulator NAME_OR_UDID] [--server-url URL]
   ./scripts/run-rook.sh phone [--device NAME_OR_UDID] [--team TEAM_ID] [--server-url URL]
+  ./scripts/run-rook.sh mac sim
+  ./scripts/run-rook.sh server mac sim
   ./scripts/run-rook.sh stop
 
 What it does:
   - starts the Rook server if needed
   - regenerates Xcode projects from project.yml
-  - rebuilds the selected app incrementally
-  - launches the selected target
+  - rebuilds the selected app(s) incrementally
+  - launches the selected target(s)
 
 Notes:
+  - you can pass multiple targets; they run in the order given
   - mac uses localhost by default
   - sim uses http://127.0.0.1:3000 by default
   - phone uses your Mac's LAN IP by default
@@ -100,18 +103,18 @@ warn() { echo "[run-rook] warning: $*" >&2; }
 die() { echo "[run-rook] error: $*" >&2; exit 1; }
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "missing command: $1"; }
 
-TARGET="${1:-}"
-[[ -n "$TARGET" ]] || { usage; exit 2; }
-shift || true
-
+TARGETS=()
 SIMULATOR_FILTER=""
 DEVICE_FILTER=""
 TEAM_ID="${ROOK_IOS_DEVELOPMENT_TEAM:-}"
 SERVER_URL=""
-RESTART_SERVER=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    server|mac|sim|phone|stop)
+      TARGETS+=("$1")
+      shift
+      ;;
     --simulator)
       SIMULATOR_FILTER="${2:-}"
       shift 2
@@ -128,10 +131,6 @@ while [[ $# -gt 0 ]]; do
       SERVER_URL="${2:-}"
       shift 2
       ;;
-    --restart-server)
-      RESTART_SERVER=1
-      shift
-      ;;
     -h|--help)
       usage
       exit 0
@@ -142,10 +141,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-case "$TARGET" in
-  server|mac|sim|phone|stop) ;;
-  *) usage; exit 2 ;;
-esac
+[[ ${#TARGETS[@]} -gt 0 ]] || { usage; exit 2; }
+
+HAS_SERVER_TARGET=0
+HAS_PHONE_TARGET=0
+for target in "${TARGETS[@]}"; do
+  case "$target" in
+    server) HAS_SERVER_TARGET=1 ;;
+    phone) HAS_PHONE_TARGET=1 ;;
+    stop) ;;
+  esac
+done
+
+if (( ${#TARGETS[@]} > 1 )); then
+  for target in "${TARGETS[@]}"; do
+    if [[ "$target" == "stop" ]]; then
+      die "stop must be used by itself"
+    fi
+  done
+fi
 
 need_cmd curl
 need_cmd python3
@@ -217,11 +231,6 @@ ensure_server_deps() {
 }
 
 start_server() {
-  if (( RESTART_SERVER )); then
-    kill_server_if_owned
-    kill_server_on_port
-  fi
-
   if health_ok; then
     log "server already healthy at http://127.0.0.1:${SERVER_PORT}"
   else
@@ -243,7 +252,7 @@ start_server() {
     log "server is healthy"
   fi
 
-  if [[ "$TARGET" == "phone" ]] && listener_is_localhost_only; then
+  if (( HAS_PHONE_TARGET )) && listener_is_localhost_only; then
     die "server is only listening on localhost; restart it so the phone can reach your Mac over LAN"
   fi
 }
@@ -443,11 +452,15 @@ build_sim() {
   [[ -d "$app_path" ]] || die "missing built app: $app_path"
 
   local url="${SERVER_URL:-http://127.0.0.1:${SERVER_PORT}}"
-  log "installing Rook into simulator"
+  log "refreshing simulator install for Rook"
+  xcrun simctl terminate "$sim_udid" com.rookery.Rook >/dev/null 2>&1 || true
+  xcrun simctl uninstall "$sim_udid" com.rookery.Rook >/dev/null 2>&1 || true
   xcrun simctl install "$sim_udid" "$app_path" >/dev/null
   log "launching Rook in simulator with ROOK_SERVER_BASE_URL=$url"
-  SIMCTL_CHILD_ROOK_SERVER_BASE_URL="$url" \
-    xcrun simctl launch --terminate-running-process "$sim_udid" com.rookery.Rook >/dev/null
+  local launch_output
+  launch_output="$(SIMCTL_CHILD_ROOK_SERVER_BASE_URL="$url" \
+    xcrun simctl launch --terminate-running-process "$sim_udid" com.rookery.Rook)"
+  log "$launch_output"
 }
 
 build_phone() {
@@ -515,24 +528,26 @@ build_phone() {
 EOF
 }
 
-if [[ "$TARGET" == "stop" ]]; then
+if [[ "${TARGETS[0]}" == "stop" ]]; then
   stop_everything
   exit 0
 fi
 
 start_server
 
-case "$TARGET" in
-  server)
-    log "server only: http://127.0.0.1:${SERVER_PORT}"
-    ;;
-  mac)
-    build_mac
-    ;;
-  sim)
-    build_sim
-    ;;
-  phone)
-    build_phone
-    ;;
-esac
+for TARGET in "${TARGETS[@]}"; do
+  case "$TARGET" in
+    server)
+      log "server ready: http://127.0.0.1:${SERVER_PORT}"
+      ;;
+    mac)
+      build_mac
+      ;;
+    sim)
+      build_sim
+      ;;
+    phone)
+      build_phone
+      ;;
+  esac
+done

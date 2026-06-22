@@ -128,8 +128,8 @@ unregistered (`POST /api/environments/unregister`). Activations are debounced
 (700 ms) so ⌘-Tab flicker doesn't churn registrations, the app ignores its own
 activations (opening the panel doesn't end the episode), and currently cached
 registrations are re-announced if the server restarts. Offers arrive over the
-session websocket like any other environment - the menu bar bird fills amber
-and the native approval view shows the skill files before anything loads.
+session websocket like any other environment, and the native approval view
+shows the skill files before anything loads.
 
 Provider activity is traced to `/tmp/agent-station-menubar.log` for debugging.
 
@@ -245,11 +245,9 @@ APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData \
 open "$APP_PATH"
 ```
 
-Look for the **bird icon** in the menu bar (no Dock icon - it's an
-`LSUIElement` app). The icon fills and turns amber when an environment offer
-is pending, and tints violet while a run is in flight. If you don't see it,
-read the troubleshooting section below - on a crowded menu bar this is
-expected, not a bug.
+Look for the **purple rook icon** in the menu bar (no Dock icon - it's an
+`LSUIElement` app). If you don't see it, read the troubleshooting section
+below - on a crowded menu bar this is expected, not a bug.
 
 To kill and relaunch (e.g. after a rebuild):
 

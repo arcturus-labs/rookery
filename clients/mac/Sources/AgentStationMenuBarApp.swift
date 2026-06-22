@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var mainWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let icon = NSImage(named: "AppBrand") {
+            NSApp.applicationIconImage = icon
+        }
         guard let model = AgentStationModel.shared else { return }
         let contentView = AgentStationMenuView(model: model)
         let hostingController = NSHostingController(rootView: contentView)
@@ -57,8 +60,10 @@ struct AgentStationMenuBarApp: App {
             .keyboardShortcut("q")
         } label: {
             Image("MenuBarIcon")
-                .renderingMode(.template)
-                .foregroundStyle(model.menuBarTint)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
                 .accessibilityLabel("Agent Station")
                 .help(model.menuBarHelp)
         }

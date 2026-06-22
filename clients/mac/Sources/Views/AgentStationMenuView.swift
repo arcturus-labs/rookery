@@ -250,10 +250,11 @@ private struct HomeContent: View {
 
     private var identityRow: some View {
         HStack(spacing: 10) {
-            Image("MenuBarIcon")
-                .renderingMode(.template)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(PanelPalette.accent)
+            Image("RookMark")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 15, height: 15)
             Text("Agent Station")
                 .font(.headline)
             Spacer(minLength: 0)

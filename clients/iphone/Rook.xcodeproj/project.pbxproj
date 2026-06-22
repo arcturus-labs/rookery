@@ -16,6 +16,7 @@
 		6466135E2CDDBF493C2179B9 /* PlacesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29576F6F57489599396405E7 /* PlacesScreen.swift */; };
 		6A758CE682622466DE13275A /* EnvironmentOfferSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3750D99D34721CDF69C0308 /* EnvironmentOfferSheet.swift */; };
 		6E1F6B55A850CCDE6BD8EBBE /* SessionsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC0E6975A54FDE443878E1C /* SessionsScreen.swift */; };
+		6E9D67785D0292F3DD674483 /* RookMarkPurple.png in Resources */ = {isa = PBXBuildFile; fileRef = F7BB35715064833F54ABBC87 /* RookMarkPurple.png */; };
 		8840E0A6C19AD35B38A0943B /* RookKit in Frameworks */ = {isa = PBXBuildFile; productRef = 14EB51A753FB1D1C047A02B6 /* RookKit */; };
 		A8B2F835A776E831E436D046 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4F66CA8B0705F9CBEB69CE12 /* Assets.xcassets */; };
 		BC167FA11552D7BB927EA275 /* RookApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3242EFA5038F71BF9B1BA2C2 /* RookApp.swift */; };
@@ -71,6 +72,7 @@
 		D7BD772167EE16CB4B505749 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		DCE760C1B72265F36091790A /* LocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationProvider.swift; sourceTree = "<group>"; };
 		F4B15032C32C3A8CFD7D44F9 /* Place.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Place.swift; sourceTree = "<group>"; };
+		F7BB35715064833F54ABBC87 /* RookMarkPurple.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = RookMarkPurple.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,6 +164,7 @@
 			children = (
 				2C5F4783F949C9A22F7A9565 /* Info.plist */,
 				4E24C81A781D992BAD441884 /* RookLiveActivity.swift */,
+				F7BB35715064833F54ABBC87 /* RookMarkPurple.png */,
 				D19DA31FA2274FE9C6942E5A /* RookWidgetsBundle.swift */,
 			);
 			path = RookWidgets;
@@ -175,6 +178,7 @@
 			buildConfigurationList = D826BD93B8E44A350D602C19 /* Build configuration list for PBXNativeTarget "RookWidgets" */;
 			buildPhases = (
 				E19049BA0DABD3977D15C1A7 /* Sources */,
+				9DDA5A7A75DD71728A272BD2 /* Resources */,
 				1045E04A0B9E284ECC22A20F /* Frameworks */,
 			);
 			buildRules = (
@@ -251,6 +255,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A8B2F835A776E831E436D046 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DDA5A7A75DD71728A272BD2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6E9D67785D0292F3DD674483 /* RookMarkPurple.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

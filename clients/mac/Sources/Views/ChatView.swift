@@ -76,9 +76,11 @@ struct ChatDetail: View {
                     .frame(maxWidth: .infinity, minHeight: 260)
             } else if model.blocks.isEmpty {
                 VStack(spacing: 8) {
-                    Image(systemName: "bird")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(PanelPalette.secondaryText)
+                    Image("RookMark")
+                        .renderingMode(.original)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
                     Text("Say something to your agent")
                         .font(.callout)
                         .fontWeight(.medium)

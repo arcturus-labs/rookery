@@ -187,23 +187,6 @@ final class AgentStationModel: ObservableObject {
 
     // MARK: - Menu bar status
 
-    var menuBarSystemImage: String {
-        if pendingOffer != nil {
-            return "bird.fill"
-        }
-        return "bird"
-    }
-
-    var menuBarTint: Color {
-        if pendingOffer != nil {
-            return PanelPalette.warning
-        }
-        if isRunning {
-            return PanelPalette.info
-        }
-        return Color.primary
-    }
-
     var menuBarHelp: String {
         switch serverState {
         case .online:
