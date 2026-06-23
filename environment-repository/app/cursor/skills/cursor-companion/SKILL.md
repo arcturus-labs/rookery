@@ -6,7 +6,7 @@ description: Context for assisting while the user is working in the Cursor IDE. 
 # Cursor Companion
 
 The user currently has the **Cursor IDE** in the foreground on their Mac — you
-were told this by the Agent Station menu bar app, which watches the frontmost
+were told this by the Rook menu bar app, which watches the frontmost
 application.
 
 When answering:
@@ -27,7 +27,7 @@ user is currently looking at. Read the port + token once (a `0600` file your
 shell can read; a webpage cannot):
 
 ```bash
-cat ~/.agent-station/mac-bridge.json   # { "port": 8765, "token": "<hex>", ... }
+cat ~/.rook/mac-bridge.json   # { "port": 8765, "token": "<hex>", ... }
 ```
 
 Send `Authorization: Bearer <token>` on every call. Two reads:

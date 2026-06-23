@@ -59,7 +59,7 @@ Tag each issue **when creating it on GitHub** — not in the issue body. These l
 - `future_work`
 
 **Area** (one or more, from the todo's `areas:` field):
-- `UI`, `Service`, `Environment`, `Clients`, `web-client`, `obsidian-client`, `chrome-extension`, `agent-station-menu-bar-app-mac` — create new area labels on GitHub as they appear in todo blocks
+- `UI`, `Service`, `Environment`, `Clients`, `web-client`, `obsidian-client`, `chrome-extension`, `rook-mac-app` — create new area labels on GitHub as they appear in todo blocks
 
 # BYOA / Rookery Todos Gathered from TiddlyJohn
 
@@ -68,7 +68,7 @@ Tag each issue **when creating it on GitHub** — not in the issue body. These l
 ## Build the narrow environment bridge (`interact_with_environment` / `postToEnvironment`)
 - issue: https://github.com/arcturus-labs/rookery/issues/3
 - type: product_change
-- areas: Environment, Service, agent-station-menu-bar-app-mac
+- areas: Environment, Service, rook-mac-app
 - source: `narrow-skills-environment-bridge.md`, `skills-definitions.md`
 - original:
 ```
@@ -83,22 +83,22 @@ Tag each issue **when creating it on GitHub** — not in the issue body. These l
 - [ ] A Rook running on Mac and Android at the same time addresses environments the same way (`os:macintosh`, `app:slack`, …); only the bridge on the relevant device runs OS-specific code.
 - [ ] Turning off an environmental skill should make `postToEnvironment` fail with a clear error (see also [[Make current, disabled, and unapproved skills visible and controllable]]).
 ```
-- migration callout — **menu bar app skills bypass the bridge today.** Skills under `environment-repository/app/` teach the agent to shell/`curl` directly against the menu bar app's local MacBridge (`http://127.0.0.1:<MacBridgePort>`, token from `~/.agent-station/mac-bridge.json`). That is deeply Mac-specific and must move behind the bridge:
+- migration callout — **menu bar app skills bypass the bridge today.** Skills under `environment-repository/app/` teach the agent to shell/`curl` directly against the menu bar app's local MacBridge (`http://127.0.0.1:<MacBridgePort>`, token from `~/.rook/mac-bridge.json`). That is deeply Mac-specific and must move behind the bridge:
 	- `environment-repository/app/cursor/cursor-companion/SKILL.md` — `/context`, `/window-text`, `/ax-elements`, `/input`
 	- `environment-repository/app/google-chrome/web-reader/SKILL.md` — `/window-text`, `/screen-text`, `/screenshot`
 	- `environment-repository/app/google-chrome/web-writer/SKILL.md` — `/input`, `/applescript` (System Events keystrokes)
 	- `environment-repository/app/slack/slack-companion/SKILL.md` — `/context`, `/window-text`, `/applescript`
-	- Implementation today: `agent-station-menu-bar-app-mac/Sources/Services/MacBridge.swift` (and README tier-3/4 docs). These routes stay — but the agent should reach them only via `interact_with_environment` / `postToEnvironment`, not raw curl in skill text.
+	- Implementation today: `rook-mac-app/Sources/Services/MacBridge.swift` (and README tier-3/4 docs). These routes stay — but the agent should reach them only via `interact_with_environment` / `postToEnvironment`, not raw curl in skill text.
 - contrast — `environment-repository/web/wikipedia/wikipedia-discovery/SKILL.md` is closer to the target model (skills describe endpoints; client/extension handles the wire).
 
-## Rename Agent Station to Rook
+## Rename Rook to Rook
 - issue: https://github.com/arcturus-labs/rookery/issues/4
 - type: product_change
 - areas: UI, Service, web-client, obsidian-client, chrome-extension
 - source: `BYOA TODOs.md`
 - original:
 ```
-- [ ] Change naming to Rook (there are some agent station things?)
+- [ ] Change naming to Rook (there are some rook things?)
 ```
 
 ## Allow queued and steering prompts while the agent is running
@@ -268,7 +268,7 @@ These need to be combined into a single TODO
 	- [ ] make an easy install – this is tricky because we need several things
 		- [ ] browser plug-in
 		- [ ] make the agent-server-client run
-		- [ ] have a tunnel daemon set up like cloudflare that sends messages from agentstation.com to your actual agent (websites will send messages to us)
+		- [ ] have a tunnel daemon set up like cloudflare that sends messages from rook.com to your actual agent (websites will send messages to us)
 	- [ ]  [[Make "participatory workflow creation, improvement, and execution" skill]] 
 	- [ ] It also needs an onboarding skill. 
 ```
@@ -336,7 +336,7 @@ These need to be combined into a single TODO
 ### Maybe Later TODOs
 
 - [ ] [[Make red-green diff that works in VSCode for any Agent that implements ACP]]
-- [ ] Combine the chrome plugin into AgentStation and make it be able to see the contents of the page and the URL
+- [ ] Combine the chrome plugin into Rook and make it be able to see the contents of the page and the URL
 - [ ] Make it easy to plug in extensions rather than just skills when the agent arrives in a particular context
 - [ ] Create search over previous conversations (maybe using rg).
 - [ ] **Multiagent interactions** 

@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A3694D5C28A4FC4B47871488"
-               BuildableName = "AgentStationMenuBar.app"
-               BlueprintName = "AgentStationMenuBar"
-               ReferencedContainer = "container:AgentStationMenuBar.xcodeproj">
+               BlueprintIdentifier = "BECEADD2309FE9E37792DF18"
+               BuildableName = "Rook.app"
+               BlueprintName = "Rook"
+               ReferencedContainer = "container:Rook.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A3694D5C28A4FC4B47871488"
-            BuildableName = "AgentStationMenuBar.app"
-            BlueprintName = "AgentStationMenuBar"
-            ReferencedContainer = "container:AgentStationMenuBar.xcodeproj">
+            BlueprintIdentifier = "BECEADD2309FE9E37792DF18"
+            BuildableName = "Rook.app"
+            BlueprintName = "Rook"
+            ReferencedContainer = "container:Rook.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -55,10 +55,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A3694D5C28A4FC4B47871488"
-            BuildableName = "AgentStationMenuBar.app"
-            BlueprintName = "AgentStationMenuBar"
-            ReferencedContainer = "container:AgentStationMenuBar.xcodeproj">
+            BlueprintIdentifier = "BECEADD2309FE9E37792DF18"
+            BuildableName = "Rook.app"
+            BlueprintName = "Rook"
+            ReferencedContainer = "container:Rook.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -74,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A3694D5C28A4FC4B47871488"
-            BuildableName = "AgentStationMenuBar.app"
-            BlueprintName = "AgentStationMenuBar"
-            ReferencedContainer = "container:AgentStationMenuBar.xcodeproj">
+            BlueprintIdentifier = "BECEADD2309FE9E37792DF18"
+            BuildableName = "Rook.app"
+            BlueprintName = "Rook"
+            ReferencedContainer = "container:Rook.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

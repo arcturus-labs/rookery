@@ -1,6 +1,6 @@
 import Foundation
 
-/// Launches and supervises a dev Agent Station server (`npm run dev`) for the
+/// Launches and supervises a dev Rook server (`npm run dev`) for the
 /// rookery repo when one isn't already running.
 @MainActor
 final class ServerController {
@@ -36,7 +36,7 @@ final class ServerController {
 
     static var logFileURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: "Library/Logs/AgentStationMenuBar/server.log")
+            .appending(path: "Library/Logs/Rook/server.log")
     }
 
     func start() {

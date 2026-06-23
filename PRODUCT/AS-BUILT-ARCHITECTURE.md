@@ -139,7 +139,7 @@ Current design:
 
 Generated Pi launch helpers are written under:
 
-- `.var/agent-station/generated/pi-launchers/`
+- `.var/rook/generated/pi-launchers/`
 
 ### 5.5 Agent discovery
 
@@ -327,7 +327,7 @@ Supported behaviors include:
 
 ## 10. Persistence and local state
 
-Current local mutable state is under `.var/agent-station/`.
+Current local mutable state is under `.var/rook/`.
 
 Important pieces:
 

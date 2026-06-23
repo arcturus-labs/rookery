@@ -18,14 +18,14 @@ Use this skill when the task requires *writing* into the current tab. For
 
 ## Prerequisites
 
-- **Agent Station menu bar app** running, with the mac bridge active.
+- **Rook menu bar app** running, with the mac bridge active.
 - **Computer control enabled** in the menu bar app (the `/input` endpoint is
   gated behind this toggle). If `/input` returns `403` with `"computer control
   disabled"`, tell the user to enable it.
 - Authenticate once per session:
 
 ```bash
-TOKEN=$(cat ~/.agent-station/mac-bridge.json | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+TOKEN=$(cat ~/.rook/mac-bridge.json | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
 BASE="http://127.0.0.1:8765"
 ```
 
@@ -186,7 +186,7 @@ appear in the AX tree, the pattern is simpler:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `/input` returns 403 | Computer control not enabled | Ask user to enable it in Agent Station menu bar |
+| `/input` returns 403 | Computer control not enabled | Ask user to enable it in Rook menu bar |
 | Text appears in wrong place | Focus not in the editor | Double-click into the editor first |
 | Paste does nothing | Google Docs / canvas editor without focus | Double-click into canvas, then AppleScript paste |
 | `key` action fails for "a", "v", etc. | Only named special keys supported | Use AppleScript for character keys with modifiers |

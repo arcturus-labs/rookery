@@ -5,7 +5,7 @@ description: Perceive and drive Slack while the user has it in the foreground. U
 
 # Slack Companion
 
-The user has **Slack** frontmost on their Mac. The Agent Station menu bar app
+The user has **Slack** frontmost on their Mac. The Rook menu bar app
 exposes a local, **authenticated** Mac bridge so you can perceive what they're
 looking at and drive the app.
 
@@ -15,7 +15,7 @@ The bridge requires a per-launch bearer token, shared via a `0600` file only
 your shell (not a webpage) can read. Read the port and token once:
 
 ```bash
-cat ~/.agent-station/mac-bridge.json
+cat ~/.rook/mac-bridge.json
 # { "port": 8765, "token": "<hex>", "baseUrl": "http://127.0.0.1:8765" }
 ```
 

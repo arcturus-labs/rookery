@@ -10,8 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let icon = NSImage(named: "AppBrand") {
             NSApp.applicationIconImage = icon
         }
-        guard let model = AgentStationModel.shared else { return }
-        let contentView = AgentStationMenuView(model: model)
+        guard let model = RookMacModel.shared else { return }
+        let contentView = RookView(model: model)
         let hostingController = NSHostingController(rootView: contentView)
 
         let window = NSWindow(
@@ -21,11 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.contentViewController = hostingController
-        window.title = "Agent Station"
+        window.title = "Rook"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("AgentStationMainWindow")
+        window.setFrameAutosaveName("RookMainWindow")
         window.center()
         window.makeKeyAndOrderFront(nil)
 
@@ -44,13 +44,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct AgentStationMenuBarApp: App {
+struct RookApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var model = AgentStationModel()
+    @StateObject private var model = RookMacModel()
 
     var body: some Scene {
         MenuBarExtra {
-            Button("Show Agent Station") {
+            Button("Show Rook") {
                 appDelegate.showMainWindow()
             }
             Divider()
@@ -64,7 +64,7 @@ struct AgentStationMenuBarApp: App {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 16, height: 16)
-                .accessibilityLabel("Agent Station")
+                .accessibilityLabel("Rook")
                 .help(model.menuBarHelp)
         }
     }

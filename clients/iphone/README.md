@@ -79,13 +79,13 @@ Rook (iOS app target)                         RookWidgets (app-extension)
   └─ Views/               RootView · AgentPickerScreen · ChatScreen · PlacesScreen · EnvironmentOfferSheet
             │
             ▼ depends on
-        RookKit  ──── Models · Net (AgentStationAPI/AcpSocket) · Design · Voice · LiveActivity
+        RookKit  ──── Models · Net (RookAPI/AcpSocket) · Design · Voice · LiveActivity
             │
             ▼ REST + ACP JSON-RPC over WebSocket
-        Agent Station server @ 127.0.0.1:3000
+        Rook server @ 127.0.0.1:3000
 ```
 
-`RookModel` is the iOS counterpart of the Mac app's `AgentStationModel`: it
+`RookModel` is the iOS counterpart of the Mac app's `RookMacModel`: it
 reuses the same socket/offer/chat reducer and substitutes `LocationProvider`
 (place) for `ForegroundAppMonitor` (app). Every macOS-only service (the Mac
 bridge, Accessibility/AX, screen capture, hotkeys, server supervision) is
@@ -93,7 +93,7 @@ dropped.
 
 ### The location → skill loop
 
-Mirrors `AgentStationModel.handleForegroundApp`, with place in place of app:
+Mirrors `RookMacModel.handleForegroundApp`, with place in place of app:
 
 1. You define places → `PlaceStore`; `LocationProvider` monitors their regions
    (Always auth recommended for background entry).
@@ -121,7 +121,7 @@ that bundle.
 ## Getting it running
 
 Prerequisites: Xcode, [xcodegen](https://github.com/yonaskolb/XcodeGen)
-(`brew install xcodegen`), and Node (for the Agent Station server). The iOS
+(`brew install xcodegen`), and Node (for the Rook server). The iOS
 **Simulator shares the Mac's network**, so the default
 `http://127.0.0.1:3000` works unchanged from the simulator.
 
@@ -140,7 +140,7 @@ Fast paths from the repo root:
 Manual steps:
 
 ```zsh
-# 1. Start the Agent Station server (skip if already running)
+# 1. Start the Rook server (skip if already running)
 cd <path-to-rookery>        # the repo root
 npm run dev
 # verify: curl http://127.0.0.1:3000/api/health  ->  {"ok":true,...}

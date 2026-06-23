@@ -25,7 +25,7 @@ That starts the backend on `http://127.0.0.1:3000`.
 
 ## Pi agent configuration
 
-Agent Station loads ACP-backed agent profiles from:
+Rook loads ACP-backed agent profiles from:
 - `config/agent-profiles.json`
 
 Default example:
@@ -78,7 +78,7 @@ Use this repo for the launcher-side configuration, mainly:
 
 If your Pi package lives somewhere else, update the `args` path in `config/agent-profiles.json`.
 
-Generated Pi launch helpers are written under `.var/agent-station/generated/pi-launchers/`.
+Generated Pi launch helpers are written under `.var/rook/generated/pi-launchers/`.
 
 Terse map of `src/`:
 
@@ -161,7 +161,7 @@ The goal is not perfect purity yet; this is the direction to follow when adding 
 ### Main repository/persistence objects
 - `LocalEnvironmentRepository.ts`: maps `<kind>:<path>` environment IDs to skill bundle directories under `environment-repository/` and reads previewable skill files.
 - `EnvironmentDecisionStore.ts`: SQLite-backed store for persistent `approve` / `reject` decisions.
-  - Current DB location: `.var/agent-station/environment-decisions.sqlite`
+  - Current DB location: `.var/rook/environment-decisions.sqlite`
   - Clear it by removing that file
 - `sessionLog.ts`: stores provider/session restart metadata used to recreate stopped rooms.
 

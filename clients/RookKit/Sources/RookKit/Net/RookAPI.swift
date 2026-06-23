@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AgentStationAPIError: LocalizedError {
+public struct RookAPIError: LocalizedError {
     public let message: String
 
     public init(message: String) {
@@ -10,8 +10,8 @@ public struct AgentStationAPIError: LocalizedError {
     public var errorDescription: String? { message }
 }
 
-/// REST control plane for the Agent Station / Rook server.
-public struct AgentStationAPI {
+/// REST control plane for the Rook server.
+public struct RookAPI {
     public let baseURL: URL
 
     public init(baseURL: URL = URL(string: "http://127.0.0.1:3000")!) {
@@ -81,7 +81,7 @@ public struct AgentStationAPI {
     private func start(payload: [String: JSONValue]) async throws -> AgentSessionSummary {
         let body = try await postJSON(path: "api/agent/start", payload: .object(payload))
         guard let session = body["session"], session != .null else {
-            throw AgentStationAPIError(message: "Server returned no session")
+            throw RookAPIError(message: "Server returned no session")
         }
         return AgentSessionSummary(raw: session)
     }
@@ -164,6 +164,6 @@ public struct AgentStationAPI {
         }
         let body = try? JSONDecoder().decode(JSONValue.self, from: data)
         let message = body?["error"]?.stringValue ?? "Server error (\(http.statusCode))"
-        throw AgentStationAPIError(message: message)
+        throw RookAPIError(message: message)
     }
 }

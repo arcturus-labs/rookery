@@ -4,7 +4,7 @@ import RookKit
 import SwiftUI
 
 struct ChatDetail: View {
-    @ObservedObject var model: AgentStationModel
+    @ObservedObject var model: RookMacModel
     var elasticThreadCard = true
     var measurementMode = false
     @State private var draft = ""

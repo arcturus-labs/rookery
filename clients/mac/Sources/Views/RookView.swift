@@ -2,8 +2,8 @@ import Foundation
 import RookKit
 import SwiftUI
 
-struct AgentStationMenuView: View {
-    @ObservedObject var model: AgentStationModel
+struct RookView: View {
+    @ObservedObject var model: RookMacModel
     @State private var measuredContentHeight: CGFloat = 420
     @State private var hostingWindow: NSWindow?
     @State private var hasAppliedInitialSizing = false
@@ -222,7 +222,7 @@ struct DetailHeader: View {
 // MARK: - Home
 
 private struct HomeContent: View {
-    @ObservedObject var model: AgentStationModel
+    @ObservedObject var model: RookMacModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -255,7 +255,7 @@ private struct HomeContent: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 15, height: 15)
-            Text("Agent Station")
+            Text("Rook")
                 .font(.headline)
             Spacer(minLength: 0)
             HStack(spacing: 6) {
@@ -506,7 +506,7 @@ private struct HomeContent: View {
                 PanelMessageView(
                     systemImage: "bolt.slash.fill",
                     tint: PanelPalette.danger,
-                    text: "Agent Station isn't reachable at \(model.api.baseURL.absoluteString). Start it here or run `npm run dev` in the rookery repo."
+                    text: "Rook isn't reachable at \(model.api.baseURL.absoluteString). Start it here or run `npm run dev` in the rookery repo."
                 )
 
                 HStack(spacing: 8) {
@@ -603,7 +603,7 @@ private struct AgentRow: View {
 // MARK: - Sessions
 
 private struct SessionsDetail: View {
-    @ObservedObject var model: AgentStationModel
+    @ObservedObject var model: RookMacModel
     var agentId: String
     @State private var newSessionName = ""
 

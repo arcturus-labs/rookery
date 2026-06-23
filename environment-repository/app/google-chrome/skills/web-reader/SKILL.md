@@ -27,7 +27,7 @@ better and always the right move.
 First authenticate (token in a `0600` file your shell can read):
 
 ```bash
-cat ~/.agent-station/mac-bridge.json   # { "port": 8765, "token": "<hex>", ... }
+cat ~/.rook/mac-bridge.json   # { "port": 8765, "token": "<hex>", ... }
 ```
 
 Then, in order:

@@ -60,7 +60,7 @@ stop_everything() {
     kill $pids || true
   fi
 
-  pkill -f AgentStationMenuBar 2>/dev/null || true
+  pkill -f Rook 2>/dev/null || true
 
   local booted
   booted="$(xcrun simctl list devices booted -j 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin).get("devices",{}); ids=[]
@@ -165,6 +165,15 @@ need_cmd curl
 need_cmd python3
 need_cmd lsof
 
+HAS_MAC_TARGET=0
+HAS_SIM_TARGET=0
+for target in "${TARGETS[@]}"; do
+  case "$target" in
+    mac) HAS_MAC_TARGET=1 ;;
+    sim) HAS_SIM_TARGET=1 ;;
+  esac
+done
+
 json_escape() {
   python3 - <<'PY' "$1"
 import json,sys
@@ -206,6 +215,39 @@ kill_server_on_port() {
   log "stopping existing listener(s) on port ${SERVER_PORT}: $(echo "$pids" | tr '\n' ' ')"
   kill $pids || true
   sleep 1
+}
+
+stop_mac_app() {
+  if pgrep -f Rook >/dev/null 2>&1; then
+    log "stopping existing Rook mac app"
+    pkill -f Rook || true
+    sleep 1
+  fi
+}
+
+stop_simulators() {
+  need_cmd xcrun
+  local booted
+  booted="$(xcrun simctl list devices booted -j 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin).get("devices",{}); ids=[]
+for _,arr in d.items():
+  ids += [x["udid"] for x in arr if x.get("state")=="Booted"]
+print("\\n".join(ids))' 2>/dev/null || true)"
+  [[ -n "$booted" ]] || return 0
+  log "stopping existing simulator app(s) and booted simulators"
+  while IFS= read -r udid; do
+    [[ -n "$udid" ]] || continue
+    xcrun simctl terminate "$udid" com.rookery.Rook 2>/dev/null || true
+    xcrun simctl shutdown "$udid" 2>/dev/null || true
+  done <<< "$booted"
+}
+
+stop_requested_targets() {
+  (( HAS_MAC_TARGET )) && stop_mac_app
+  (( HAS_SIM_TARGET )) && stop_simulators
+  if (( HAS_SERVER_TARGET )); then
+    kill_server_if_owned
+    kill_server_on_port
+  fi
 }
 
 wait_for_health() {
@@ -409,19 +451,15 @@ print("\\n".join(ids))
 build_mac() {
   need_cmd xcodebuild
   local app_dir="$REPO_ROOT/clients/mac"
-  local proj="$app_dir/AgentStationMenuBar.xcodeproj"
-  local derived="$BUILD_ROOT/AgentStationMenuBar"
+  local proj="$app_dir/Rook.xcodeproj"
+  local derived="$BUILD_ROOT/Rook"
   ensure_xcode_project "$app_dir" "$proj"
-  if pgrep -f AgentStationMenuBar >/dev/null 2>&1; then
-    log "stopping existing AgentStationMenuBar"
-    pkill -f AgentStationMenuBar || true
-    sleep 1
-  fi
-  log "building AgentStationMenuBar"
-  xcodebuild -project "$proj" -scheme AgentStationMenuBar -configuration Debug -derivedDataPath "$derived" build >/dev/null
-  local app_path="$derived/Build/Products/Debug/AgentStationMenuBar.app"
+  stop_mac_app
+  log "building Rook"
+  xcodebuild -project "$proj" -scheme Rook -configuration Debug -derivedDataPath "$derived" build >/dev/null
+  local app_path="$derived/Build/Products/Debug/Rook.app"
   [[ -d "$app_path" ]] || die "missing built app: $app_path"
-  log "launching AgentStationMenuBar"
+  log "launching Rook"
   open "$app_path"
 }
 
@@ -533,6 +571,7 @@ if [[ "${TARGETS[0]}" == "stop" ]]; then
   exit 0
 fi
 
+stop_requested_targets
 start_server
 
 for TARGET in "${TARGETS[@]}"; do

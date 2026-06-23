@@ -21,7 +21,7 @@ Use the package READMEs above as the main lookup docs for each area.
 
 ## Quick start
 1. Install **pi.dev / Pi** first, and make sure the `pi` CLI is on your `PATH`.
-   Agent Station's ACP-backed Pi adapter still shells out to `pi`; without that install, Pi agents will not start.
+   Rook's ACP-backed Pi adapter still shells out to `pi`; without that install, Pi agents will not start.
 2. Make sure the sibling agent package exists at `../my-agent/`.
    This repo expects that path relative to `server/`, so the default profile resolves it as `rookery_ai/server/../my-agent`.
 3. Install the backend deps:
@@ -61,7 +61,7 @@ Built-in agent parents now include:
 - `ClaudeAgent`
 
 What that means:
-- `id`: the agent name shown in Agent Station
+- `id`: the agent name shown in Rook
 - `type: "pi"`: use the built-in Pi-flavored ACP launcher
 - `type: "claude"`: use the built-in Claude-flavored ACP launcher
 - `parentId: "PiAgent"`: group this profile under the built-in Pi agent
@@ -73,7 +73,7 @@ The important bit is:
 - the Pi launch helper is now generated internally at runtime; there is no checked-in wrapper script to maintain
 
 ## `../my-agent/` layout
-`../my-agent/` is a separate sibling package, not part of this repo. Agent Station expects it to be your Pi agent/skills workspace.
+`../my-agent/` is a separate sibling package, not part of this repo. Rook expects it to be your Pi agent/skills workspace.
 
 Typical responsibilities there:
 - agent instructions/prompts
@@ -100,7 +100,7 @@ If you move or rename the sibling package, update `args` in `agent-profiles.json
 - Register an environment: `POST /api/environments/register`
 - Mark an environment unavailable: `POST /api/environments/unregister`
 - Record an environment decision: `POST /api/environments/decision`
-- Clear remembered environment decisions: remove `.var/agent-station/environment-decisions.sqlite`
+- Clear remembered environment decisions: remove `.var/rook/environment-decisions.sqlite`
 
 ## Monorepo notes
 - `server/` currently owns the backend npm deps and lockfile

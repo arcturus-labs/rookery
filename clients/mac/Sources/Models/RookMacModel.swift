@@ -39,8 +39,8 @@ struct ContextUsageState: Equatable {
 }
 
 @MainActor
-final class AgentStationModel: ObservableObject {
-    static weak var shared: AgentStationModel?
+final class RookMacModel: ObservableObject {
+    static weak var shared: RookMacModel?
 
     // Navigation lives on the model (not view @State) so the window remembers
     // where the user left off after reopening.
@@ -108,7 +108,7 @@ final class AgentStationModel: ObservableObject {
     @Published var voiceSpeaking = false
     @Published var voicePartial = ""
 
-    let api = AgentStationAPI()
+    let api = RookAPI()
     private let socket = AcpSocket()
     private let serverController = ServerController()
     private let foregroundMonitor = ForegroundAppMonitor()
@@ -141,7 +141,7 @@ final class AgentStationModel: ObservableObject {
     private let environmentStaleAfter: TimeInterval = 5 * 60
 
     init() {
-        AgentStationModel.shared = self
+        RookMacModel.shared = self
         socket.onEvent = { [weak self] event in
             self?.handleSocketEvent(event)
         }
@@ -191,13 +191,13 @@ final class AgentStationModel: ObservableObject {
         switch serverState {
         case .online:
             if let session = currentSession {
-                return "Agent Station — \(session.agent) · \(session.name)"
+                return "Rook — \(session.agent) · \(session.name)"
             }
-            return "Agent Station — server online"
+            return "Rook — server online"
         case .starting:
-            return "Agent Station — server starting…"
+            return "Rook — server starting…"
         default:
-            return "Agent Station — server offline"
+            return "Rook — server offline"
         }
     }
 
@@ -307,7 +307,7 @@ final class AgentStationModel: ObservableObject {
             backing: .buffered,
             defer: false
         )
-        panel.title = "Agent Station Log"
+        panel.title = "Rook Log"
         panel.titlebarAppearsTransparent = true
         panel.titleVisibility = .hidden
         panel.isFloatingPanel = true
@@ -1221,7 +1221,7 @@ final class AgentStationModel: ObservableObject {
     /// in the user's home dir. The agent's shell can read it; a webpage hitting
     /// the loopback port cannot, so CSRF/DNS-rebinding callers can't authenticate.
     private func writeBridgeHandshake(port: UInt16, token: String) {
-        let dir = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".agent-station")
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".rook")
         let file = dir.appending(path: "mac-bridge.json")
         do {
             try FileManager.default.createDirectory(
