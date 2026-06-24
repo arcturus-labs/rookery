@@ -448,9 +448,6 @@ final class RookMacModel: ObservableObject {
         pendingPermission = nil
         lastStopReason = nil
         enteredEnvironments = []
-        if resumed {
-            appendBlock(.system(text: "Resumed session — earlier messages aren't replayed."))
-        }
         socket.connect(sessionId: session.id, webSocketURL: api.webSocketURL)
         if switchToChat {
             panelMode = .chat
@@ -665,6 +662,8 @@ final class RookMacModel: ObservableObject {
 
     private func handleSocketEvent(_ event: AcpClientEvent) {
         switch event {
+        case .userMessageChunk(let text):
+            appendBlock(.user(text: text))
         case .agentMessageChunk(let text):
             statusLine = "Responding…"
             appendStreamingText(text, isThinking: false)

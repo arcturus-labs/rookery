@@ -26,7 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("RookMainWindow")
-        window.center()
+        if !window.setFrameUsingName("RookMainWindow") {
+            window.center()
+        }
         window.makeKeyAndOrderFront(nil)
 
         mainWindow = window

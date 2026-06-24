@@ -10,6 +10,7 @@ struct RookView: View {
 
     private let homePanelWidth: CGFloat = 372
     private let detailPanelWidth: CGFloat = 460
+    private let mainWindowAutosaveName = "RookMainWindow"
 
     var body: some View {
         displayedContent
@@ -127,16 +128,17 @@ struct RookView: View {
         window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
 
         let currentContentRect = window.contentRect(forFrameRect: window.frame)
+        let hasSavedFrame = UserDefaults.standard.string(forKey: "NSWindow Frame \(mainWindowAutosaveName)") != nil
         let desiredContentSize: NSSize
-        if hasAppliedInitialSizing {
+        if hasAppliedInitialSizing || hasSavedFrame {
             desiredContentSize = NSSize(
                 width: max(currentContentRect.width, targetContentSize.width),
                 height: max(currentContentRect.height, targetContentSize.height)
             )
         } else {
             desiredContentSize = targetContentSize
-            hasAppliedInitialSizing = true
         }
+        hasAppliedInitialSizing = true
 
         guard abs(desiredContentSize.width - currentContentRect.width) > 1 || abs(desiredContentSize.height - currentContentRect.height) > 1 else {
             return

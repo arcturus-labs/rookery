@@ -635,6 +635,8 @@ final class RookModel: ObservableObject {
 
     private func handleSocketEvent(_ event: AcpClientEvent) {
         switch event {
+        case .userMessageChunk(let text):
+            appendBlock(.user(text: text))
         case .agentMessageChunk(let text):
             statusLine = "Responding…"
             appendStreamingText(text, isThinking: false)
