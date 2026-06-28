@@ -42,7 +42,7 @@ export class EnvironmentIdentifier {
     const website = typeof poi.raw?.website === "string" ? poi.raw.website : undefined;
     const domain = domainFromWebsite(website) ?? operatorDomain(operator);
 
-    // Per-location key: numeric store id -> address slug -> H3 cell.
+    // Per-location key: numeric store id -> address slug -> building centroid / lat,lng.
     const lk = locationKey({
       domain,
       storeNumber: poi.storeNumber,
@@ -52,6 +52,8 @@ export class EnvironmentIdentifier {
       zip: typeof poi.raw?.zip === "string" ? poi.raw.zip : undefined,
       latitude: poi.latitude,
       longitude: poi.longitude,
+      buildingCentroidLat: typeof poi.raw?.buildingCentroidLat === "number" ? poi.raw.buildingCentroidLat : undefined,
+      buildingCentroidLon: typeof poi.raw?.buildingCentroidLon === "number" ? poi.raw.buildingCentroidLon : undefined,
     });
     const environmentId = `loc:${domain}/${lk.key}`;
 
@@ -79,7 +81,7 @@ export class EnvironmentIdentifier {
   }
 }
 
-function computeMatchReasons(poi: PoiResult, keyKind: "store" | "address" | "h3", hasKnownEnvironment: boolean): string[] {
+function computeMatchReasons(poi: PoiResult, keyKind: "store" | "address" | "geo", hasKnownEnvironment: boolean): string[] {
   // Prefer provider-supplied signals (e.g. ptiles inside_building/name_match);
   // otherwise derive a coarse proximity reason from distance.
   const reasons: string[] = poi.matchReasons?.length ? [...poi.matchReasons] : [poi.distanceMeters <= 30 ? "nearest_poi" : "nearby_poi"];
@@ -92,7 +94,7 @@ function computeMatchReasons(poi: PoiResult, keyKind: "store" | "address" | "h3"
  * Rough 0..1 confidence. Closer + recognized operator + stationary/dwell raise
  * it; poor GPS accuracy and movement lower it. Intentionally coarse for MVP.
  */
-function computeConfidence(poi: PoiResult, request: IdentifyAvailableRequest, operator: string, keyKind: "store" | "address" | "h3"): number {
+function computeConfidence(poi: PoiResult, request: IdentifyAvailableRequest, operator: string, keyKind: "store" | "address" | "geo"): number {
   // Distance: 1.0 at 0m decaying to ~0 by 150m.
   const distanceScore = clamp01(1 - poi.distanceMeters / SEARCH_RADIUS_METERS);
   let score = distanceScore * 0.6;

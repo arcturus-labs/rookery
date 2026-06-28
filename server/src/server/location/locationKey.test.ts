@@ -41,9 +41,21 @@ describe("locationKey", () => {
     expect(lk.key).toBe("tn-37000-100-n-main-st-2");
   });
 
-  it("falls back to an H3 cell when there is no address", () => {
-    const lk = locationKey({ domain: "starbucks.com", ...COORD });
-    expect(lk.kind).toBe("h3");
-    expect(lk.key).toMatch(/^h3-[0-9a-f]+$/);
+  it("falls back to the business lat,lng when there is no address", () => {
+    const lk = locationKey({ domain: "starbucks.com", latitude: 36.061234, longitude: -86.701239 });
+    expect(lk.kind).toBe("geo");
+    expect(lk.key).toBe("36.06123,-86.70124");
+  });
+
+  it("uses the building centroid for the geo key when in a building", () => {
+    const lk = locationKey({
+      domain: "starbucks.com",
+      latitude: 36.061234,
+      longitude: -86.701239,
+      buildingCentroidLat: 36.062,
+      buildingCentroidLon: -86.7025,
+    });
+    expect(lk.kind).toBe("geo");
+    expect(lk.key).toBe("36.06200,-86.70250");
   });
 });

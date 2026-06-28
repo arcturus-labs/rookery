@@ -1,8 +1,7 @@
-import { latLngToCell } from "h3-js";
 import { bestGuessStoreNumber } from "./storeNumber.js";
 
-/** H3 resolution for the no-address fallback key (~residential-building scale). */
-const H3_FALLBACK_RES = 13;
+/** Decimal places for the lat/lng fallback key (~1m precision). */
+const GEO_PRECISION = 5;
 const MAX_SLUG_LENGTH = 80;
 
 export interface LocationKeyInput {
@@ -16,12 +15,15 @@ export interface LocationKeyInput {
   zip?: string;
   latitude: number;
   longitude: number;
+  /** Centroid of the matched building, preferred over the point for the geo key. */
+  buildingCentroidLat?: number;
+  buildingCentroidLon?: number;
 }
 
 export interface LocationKey {
   /** Path component for the environment id (after `loc:<domain>/`). */
   key: string;
-  kind: "store" | "address" | "h3";
+  kind: "store" | "address" | "geo";
   /** Present only when kind === "store". */
   storeNumber?: string;
 }
@@ -40,7 +42,8 @@ function slugify(value: string): string {
  * Builds a stable, per-location key for a business, with precedence:
  *   1. numeric store id parsed from the website (`store-<n>`),
  *   2. generated `state-zip-street` address slug,
- *   3. H3 cell of the coordinate (`h3-<cell>`) when no address is known.
+ *   3. a rounded `lat,lng` when no address is known — the matched building's
+ *      centroid if the point is inside a building, else the business point.
  */
 export function locationKey(input: LocationKeyInput): LocationKey {
   // Authoritative provider store number wins; else guess from the website URL.
@@ -57,5 +60,7 @@ export function locationKey(input: LocationKeyInput): LocationKey {
     return { key: parts.join("-"), kind: "address" };
   }
 
-  return { key: `h3-${latLngToCell(input.latitude, input.longitude, H3_FALLBACK_RES)}`, kind: "h3" };
+  const geoLat = input.buildingCentroidLat ?? input.latitude;
+  const geoLon = input.buildingCentroidLon ?? input.longitude;
+  return { key: `${geoLat.toFixed(GEO_PRECISION)},${geoLon.toFixed(GEO_PRECISION)}`, kind: "geo" };
 }

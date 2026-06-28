@@ -79,6 +79,8 @@ export class PtilesPoiLookupProvider implements PoiLookupProvider {
         buildingOsmId: building?.osmId,
         buildingName: building?.name ?? undefined,
         buildingType: building?.buildingType,
+        buildingCentroidLat: building?.centroidLat,
+        buildingCentroidLon: building?.centroidLon,
       },
     };
   }
