@@ -1,5 +1,6 @@
 import type { EnvironmentCandidate, IdentifyAvailableRequest } from "../../shared/environment.js";
 import type { BuildingSkillSuggester } from "./BuildingSkillSuggester.js";
+import { locationKey } from "./locationKey.js";
 import { domainFromWebsite, isKnownOperator, operatorDomain } from "./operatorAliases.js";
 import type { PoiLookupProvider, PoiResult } from "./PoiLookupProvider.js";
 
@@ -40,20 +41,34 @@ export class EnvironmentIdentifier {
     // Prefer a domain from the business website (most reliable), else the alias table.
     const website = typeof poi.raw?.website === "string" ? poi.raw.website : undefined;
     const domain = domainFromWebsite(website) ?? operatorDomain(operator);
-    const environmentId = poi.storeNumber ? `loc:${domain}/store-${poi.storeNumber}` : `loc:${domain}`;
+
+    // Per-location key: numeric store id -> address slug -> H3 cell.
+    const lk = locationKey({
+      domain,
+      storeNumber: poi.storeNumber,
+      website,
+      address: poi.address,
+      stateAbbrev: typeof poi.raw?.state === "string" ? poi.raw.state : undefined,
+      zip: typeof poi.raw?.zip === "string" ? poi.raw.zip : undefined,
+      latitude: poi.latitude,
+      longitude: poi.longitude,
+    });
+    const environmentId = `loc:${domain}/${lk.key}`;
 
     const skillPaths = await this.deps.repository.getSkillPaths(environmentId);
     const hasKnownEnvironment = skillPaths.length > 0;
     const possibleSkills = await this.deps.skillSuggester.suggestSkills({ environmentId, operator });
 
-    const matchReasons = computeMatchReasons(poi, operator, hasKnownEnvironment);
-    const confidence = computeConfidence(poi, request, operator);
+    const matchReasons = computeMatchReasons(poi, lk.kind, hasKnownEnvironment);
+    const confidence = computeConfidence(poi, request, operator, lk.kind);
 
     return {
       environmentId,
       displayName: poi.name,
       operator,
-      ...(poi.storeNumber ? { storeNumber: poi.storeNumber } : {}),
+      ...(lk.storeNumber ? { storeNumber: lk.storeNumber } : {}),
+      // "best guess" only when the store number came from the website, not the provider.
+      ...(lk.storeNumber && !poi.storeNumber ? { bestGuessStoreNumber: lk.storeNumber } : {}),
       ...(poi.address ? { address: poi.address } : {}),
       distanceMeters: Math.round(poi.distanceMeters),
       confidence,
@@ -64,11 +79,11 @@ export class EnvironmentIdentifier {
   }
 }
 
-function computeMatchReasons(poi: PoiResult, operator: string, hasKnownEnvironment: boolean): string[] {
+function computeMatchReasons(poi: PoiResult, keyKind: "store" | "address" | "h3", hasKnownEnvironment: boolean): string[] {
   // Prefer provider-supplied signals (e.g. ptiles inside_building/name_match);
   // otherwise derive a coarse proximity reason from distance.
   const reasons: string[] = poi.matchReasons?.length ? [...poi.matchReasons] : [poi.distanceMeters <= 30 ? "nearest_poi" : "nearby_poi"];
-  if (poi.storeNumber && isKnownOperator(operator)) reasons.push("operator_store_match");
+  if (keyKind === "store") reasons.push("operator_store_match");
   if (hasKnownEnvironment) reasons.push("known_environment");
   return reasons;
 }
@@ -77,13 +92,13 @@ function computeMatchReasons(poi: PoiResult, operator: string, hasKnownEnvironme
  * Rough 0..1 confidence. Closer + recognized operator + stationary/dwell raise
  * it; poor GPS accuracy and movement lower it. Intentionally coarse for MVP.
  */
-function computeConfidence(poi: PoiResult, request: IdentifyAvailableRequest, operator: string): number {
+function computeConfidence(poi: PoiResult, request: IdentifyAvailableRequest, operator: string, keyKind: "store" | "address" | "h3"): number {
   // Distance: 1.0 at 0m decaying to ~0 by 150m.
   const distanceScore = clamp01(1 - poi.distanceMeters / SEARCH_RADIUS_METERS);
   let score = distanceScore * 0.6;
 
   if (isKnownOperator(operator)) score += 0.2;
-  if (poi.storeNumber) score += 0.1;
+  if (keyKind === "store") score += 0.1;
 
   // Provider match quality (ptiles): containment and name agreement are strong signals.
   if (poi.matchReasons?.includes("inside_building")) score += 0.25;

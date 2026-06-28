@@ -3,8 +3,15 @@ import { describe, expect, it } from "vitest";
 import { EnvironmentIdentifier, type KnownEnvironmentLookup } from "./EnvironmentIdentifier.js";
 import { MockBuildingSkillSuggester } from "./BuildingSkillSuggester.js";
 import { StubPoiLookupProvider } from "./StubPoiLookupProvider.js";
+import type { PoiLookupProvider, PoiResult } from "./PoiLookupProvider.js";
 
 const TEST_COORD = { latitude: 37.3318, longitude: -122.0312 };
+
+const emptyRepo: KnownEnvironmentLookup = { async getSkillPaths() { return []; } };
+function identifierFor(poi: PoiResult): EnvironmentIdentifier {
+  const provider: PoiLookupProvider = { async nearbyPois() { return [poi]; } };
+  return new EnvironmentIdentifier({ poiProvider: provider, repository: emptyRepo, skillSuggester: new MockBuildingSkillSuggester() });
+}
 
 function makeIdentifier(knownIds: string[] = []) {
   const repository: KnownEnvironmentLookup = {
@@ -63,5 +70,38 @@ describe("EnvironmentIdentifier", () => {
     const identifier = makeIdentifier();
     const candidates = await identifier.identifyAvailableEnvironments({ latitude: 40, longitude: -74 });
     expect(candidates).toHaveLength(0);
+  });
+
+  it("derives a store-level id + bestGuessStoreNumber from a chain website", async () => {
+    const identifier = identifierFor({
+      name: "The Home Depot",
+      operator: "The Home Depot",
+      address: "546 Paul Huff Pkwy NW",
+      latitude: 35.21,
+      longitude: -84.85,
+      distanceMeters: 8,
+      matchReasons: ["inside_building"],
+      raw: { website: "https://www.homedepot.com/l/Cleveland/TN/Cleveland/37312/743", state: "TN", zip: "37312" },
+    });
+    const [c] = await identifier.identifyAvailableEnvironments({ latitude: 35.21, longitude: -84.85 });
+    expect(c.environmentId).toBe("loc:homedepot.com/store-743");
+    expect(c.bestGuessStoreNumber).toBe("743");
+    expect(c.matchReasons).toContain("operator_store_match");
+  });
+
+  it("builds an address-slug id when there is no store number", async () => {
+    const identifier = identifierFor({
+      name: "Cicis",
+      operator: "Cicis",
+      address: "5705 Nolensville Pike",
+      latitude: 36.06,
+      longitude: -86.7,
+      distanceMeters: 5,
+      raw: { website: "https://www.cicis.com/locations/tn-nashville-5705-nolensville-pike", state: "TN", zip: "37211" },
+    });
+    const [c] = await identifier.identifyAvailableEnvironments({ latitude: 36.06, longitude: -86.7 });
+    expect(c.environmentId).toBe("loc:cicis.com/tn-37211-5705-nolensville-pike");
+    expect(c.bestGuessStoreNumber).toBeUndefined();
+    expect(c.matchReasons).not.toContain("operator_store_match");
   });
 });

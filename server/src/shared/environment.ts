@@ -57,6 +57,8 @@ export interface EnvironmentCandidate {
   displayName: string;
   operator?: string;
   storeNumber?: string;
+  /** Store number guessed from the business website URL (subset of storeNumber). */
+  bestGuessStoreNumber?: string;
   address?: string;
   distanceMeters?: number;
   /** Rough 0..1 confidence for MVP. */

@@ -54,10 +54,10 @@ export class PtilesPoiLookupProvider implements PoiLookupProvider {
     if (businesses.length === 0) return [];
 
     const scored = scoreBusinesses(businesses, building);
-    return scored.slice(0, this.maxCandidates).map((s) => this.toPoiResult(s, building, admin));
+    return scored.slice(0, this.maxCandidates).map((s) => this.toPoiResult(s, building, admin, abbrev));
   }
 
-  private toPoiResult(s: ScoredBusiness, building: BuildingMatch | null, admin: { county?: string; zip?: string } | null): PoiResult {
+  private toPoiResult(s: ScoredBusiness, building: BuildingMatch | null, admin: { county?: string; zip?: string } | null, stateAbbrev: string): PoiResult {
     const biz = s.biz;
     const matchReasons = [matchReason(s)];
     return {
@@ -73,6 +73,7 @@ export class PtilesPoiLookupProvider implements PoiLookupProvider {
         phone: biz.phone || undefined,
         website: biz.website || undefined,
         chainCount: biz.chainCount,
+        state: stateAbbrev,
         county: admin?.county,
         zip: admin?.zip,
         buildingOsmId: building?.osmId,
