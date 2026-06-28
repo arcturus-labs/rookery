@@ -1,5 +1,16 @@
 import CoreLocation
+import CoreMotion
 import Foundation
+
+/// Context captured when the device appears to have meaningfully arrived
+/// somewhere, used to ask the server which `loc:` environments are available.
+struct ArrivalContext {
+    let coordinate: CLLocationCoordinate2D
+    let horizontalAccuracy: Double?
+    let dwellSeconds: Double?
+    let isStationary: Bool
+    let speedMetersPerSecond: Double?
+}
 
 /// CoreLocation environment provider — the iOS analog of the macOS
 /// `ForegroundAppMonitor`. Monitors geofenced places (CLCircularRegion region
@@ -10,6 +21,9 @@ import Foundation
 final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDelegate {
     var onRegionChange: ((Place?) -> Void)?
     var onVisitArrival: ((CLLocationCoordinate2D) -> Void)?
+    /// Fires only when the arrival passes the dwell/motion gate (stationary,
+    /// not driving) — the trigger for server-side environment identification.
+    var onArrival: ((ArrivalContext) -> Void)?
 
     @Published private(set) var authorizationStatus: CLAuthorizationStatus
     @Published private(set) var currentLocation: CLLocation?
@@ -18,11 +32,26 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
     private let manager = CLLocationManager()
     private var monitoredPlaces: [String: Place] = [:]
 
+    /// Latest known motion activity, used to reject driving-like arrivals.
+    private let motionManager = CMMotionActivityManager()
+    private var latestActivityIsAutomotive = false
+    /// Speed (m/s) at or below which we treat the device as effectively settled.
+    private let stationarySpeedThreshold: Double = 1.5
+
     override init() {
         authorizationStatus = manager.authorizationStatus
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        startMotionUpdatesIfAvailable()
+    }
+
+    private func startMotionUpdatesIfAvailable() {
+        guard CMMotionActivityManager.isActivityAvailable() else { return }
+        motionManager.startActivityUpdates(to: .main) { [weak self] activity in
+            guard let self, let activity else { return }
+            self.latestActivityIsAutomotive = activity.automotive && activity.confidence != .low
+        }
     }
 
     var isAuthorized: Bool {
@@ -150,8 +179,26 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
             return
         }
         let coordinate = visit.coordinate
+        let arrivalDate = visit.arrivalDate
+        let accuracy = visit.horizontalAccuracy
         Task { @MainActor in
+            // Always feed place-suggestion detection.
             onVisitArrival?(coordinate)
+
+            // Gate the identification trigger: settled (low speed) and not driving.
+            let speed = currentLocation?.speed
+            let dwellSeconds = arrivalDate == Date.distantPast ? nil : Date().timeIntervalSince(arrivalDate)
+            let slowOrUnknown = (speed ?? 0) <= stationarySpeedThreshold
+            let isStationary = slowOrUnknown && !latestActivityIsAutomotive
+            guard isStationary else { return }
+
+            onArrival?(ArrivalContext(
+                coordinate: coordinate,
+                horizontalAccuracy: accuracy >= 0 ? accuracy : nil,
+                dwellSeconds: dwellSeconds,
+                isStationary: true,
+                speedMetersPerSecond: (speed ?? -1) >= 0 ? speed : nil
+            ))
         }
     }
 

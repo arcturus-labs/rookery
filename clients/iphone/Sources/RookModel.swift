@@ -55,6 +55,9 @@ final class RookModel: ObservableObject {
     // slug → whether the server has a matching skill bundle (nil = not yet checked).
     // Surfaces slug↔bundle mismatches in the Places screen.
     @Published var placeSkillStatus: [String: Bool] = [:]
+    // Candidate loc: environments returned by the server for the current arrival
+    // (issue #42, phase 1). Return-only: surfaced, not auto-registered.
+    @Published var nearbyCandidates: [EnvironmentCandidate] = []
 
     // Voice
     private let voice = VoiceController()
@@ -111,6 +114,9 @@ final class RookModel: ObservableObject {
         }
         locationProvider.onVisitArrival = { [weak self] coord in
             self?.placeStore.recordVisit(latitude: coord.latitude, longitude: coord.longitude)
+        }
+        locationProvider.onArrival = { [weak self] context in
+            self?.identifyEnvironments(at: context)
         }
         locationProvider.updateMonitoredPlaces(placeStore.places)
         if locationProvider.isAuthorized {
@@ -248,6 +254,37 @@ final class RookModel: ObservableObject {
                 status[place.id] = !skills.isEmpty
             }
             placeSkillStatus = status
+        }
+    }
+
+    /// Ask the server which `loc:` environments are likely available at an
+    /// arrival that passed the dwell/motion gate. Identification only — the
+    /// candidates are surfaced, not auto-registered (issue #42, phase 1).
+    private func identifyEnvironments(at context: ArrivalContext) {
+        guard serverState == .online else {
+            return
+        }
+        let observedAt = ISO8601DateFormatter().string(from: Date())
+        let request = IdentifyAvailableRequest(
+            latitude: context.coordinate.latitude,
+            longitude: context.coordinate.longitude,
+            horizontalAccuracy: context.horizontalAccuracy,
+            source: "visit",
+            dwellSeconds: context.dwellSeconds,
+            isStationary: context.isStationary,
+            speedMetersPerSecond: context.speedMetersPerSecond,
+            observedAt: observedAt
+        )
+        Task {
+            guard let candidates = try? await api.identifyAvailableEnvironments(request) else {
+                return
+            }
+            nearbyCandidates = candidates
+            guard let top = candidates.first else {
+                return
+            }
+            let others = candidates.count > 1 ? " (+\(candidates.count - 1) more)" : ""
+            appendBlock(.system(text: "You appear to be near \(top.displayName)\(others). Found \(candidates.count) nearby environment\(candidates.count == 1 ? "" : "s")."))
         }
     }
 

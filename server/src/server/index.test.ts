@@ -398,6 +398,39 @@ describe("server", () => {
     await app.close();
   });
 
+  it("identifies available environments from a location", async () => {
+    const app = await buildServer({ enableClient: false });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/environments/identify-available",
+      payload: {
+        latitude: 37.3318,
+        longitude: -122.0312,
+        horizontalAccuracy: 18,
+        source: "visit",
+        dwellSeconds: 540,
+        isStationary: true,
+        speedMetersPerSecond: 0.2,
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as { candidates: Array<{ environmentId: string; confidence: number }> };
+    expect(body.candidates.length).toBeGreaterThanOrEqual(1);
+    expect(body.candidates[0].environmentId).toBe("loc:target.com/store-1842");
+    await app.close();
+  });
+
+  it("rejects identify-available without coordinates", async () => {
+    const app = await buildServer({ enableClient: false });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/environments/identify-available",
+      payload: { longitude: -122.0312 },
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
   it("returns environment skill previews", async () => {
     const app = await buildServer({ enableClient: false });
     const register = await app.inject({

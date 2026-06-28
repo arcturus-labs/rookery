@@ -115,6 +115,21 @@ public struct AgentStationAPI {
         )
     }
 
+    /// Ask the server which `loc:` environments are likely available at the
+    /// given location. Identification only — does not register/enter anything.
+    public func identifyAvailableEnvironments(_ request: IdentifyAvailableRequest) async throws -> [EnvironmentCandidate] {
+        struct IdentifyResponse: Decodable {
+            let candidates: [EnvironmentCandidate]
+        }
+        var urlRequest = URLRequest(url: requestURL(path: "api/environments/identify-available", query: [:]))
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try JSONEncoder().encode(request)
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        try throwIfErrorResponse(data: data, response: response)
+        return try JSONDecoder().decode(IdentifyResponse.self, from: data).candidates
+    }
+
     public func decideEnvironment(environmentId: String, decision: String) async throws {
         _ = try await postJSON(
             path: "api/environments/decision",

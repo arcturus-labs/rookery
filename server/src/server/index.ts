@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { EnvironmentDecisionStore } from "./environment/EnvironmentDecisionStore.js";
 import { EnvironmentManager } from "./environment/EnvironmentManager.js";
 import { LocalEnvironmentRepository } from "./environment/LocalEnvironmentRepository.js";
+import { EnvironmentIdentifier } from "./location/EnvironmentIdentifier.js";
+import { MockBuildingSkillSuggester } from "./location/BuildingSkillSuggester.js";
+import { StubPoiLookupProvider } from "./location/StubPoiLookupProvider.js";
+import type { PoiLookupProvider } from "./location/PoiLookupProvider.js";
 import { REPO_ROOT } from "./paths.js";
 import { SessionRoomManager } from "./realtime/SessionRoomManager.js";
 import { registerAgentRoutes } from "./routes/agentRoutes.js";
@@ -23,6 +27,8 @@ export interface BuildServerOptions {
   roomIdleTimeoutMs?: number;
   /** SQLite location for persistent environment decisions; ":memory:" in tests. */
   environmentDecisionStoreLocation?: string;
+  /** Override the POI lookup provider (defaults to the network-free stub). */
+  poiProvider?: PoiLookupProvider;
 }
 
 export async function buildServer(options: BuildServerOptions = {}) {
@@ -30,6 +36,11 @@ export async function buildServer(options: BuildServerOptions = {}) {
   const environmentRepository = new LocalEnvironmentRepository();
   const environmentDecisionStore = new EnvironmentDecisionStore(options.environmentDecisionStoreLocation);
   const environmentManager = new EnvironmentManager(environmentRepository, environmentDecisionStore);
+  const environmentIdentifier = new EnvironmentIdentifier({
+    poiProvider: options.poiProvider ?? new StubPoiLookupProvider(),
+    repository: environmentRepository,
+    skillSuggester: new MockBuildingSkillSuggester(),
+  });
   const roomManager = new SessionRoomManager({
     idleTimeoutMs: options.roomIdleTimeoutMs,
     onRoomRemoved: (sessionId) => environmentManager.unsubscribe(sessionId),
@@ -42,7 +53,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
   });
 
   await registerAgentRoutes(app, { roomManager, environmentManager });
-  await registerEnvironmentRoutes(app, environmentManager);
+  await registerEnvironmentRoutes(app, environmentManager, environmentIdentifier);
   await registerWebsocketRoute(app, roomManager);
 
   return app;

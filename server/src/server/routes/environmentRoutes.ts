@@ -1,8 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import type { EnvironmentManager } from "../environment/EnvironmentManager.js";
 import type { EnvironmentDecision } from "../environment/types.js";
+import type { EnvironmentIdentifier } from "../location/EnvironmentIdentifier.js";
+import type { IdentifyAvailableRequest, IdentifySource } from "../../shared/environment.js";
 
-export async function registerEnvironmentRoutes(app: FastifyInstance, environmentManager: EnvironmentManager): Promise<void> {
+export async function registerEnvironmentRoutes(
+  app: FastifyInstance,
+  environmentManager: EnvironmentManager,
+  environmentIdentifier: EnvironmentIdentifier,
+): Promise<void> {
   app.post<{ Body: { id?: unknown; metadata?: unknown; canonicalSourceUrl?: unknown; sourceName?: unknown } }>("/api/environments/register", async (request, reply) => {
     const id = request.body?.id;
     if (typeof id !== "string" || !id.trim()) {
@@ -59,5 +65,30 @@ export async function registerEnvironmentRoutes(app: FastifyInstance, environmen
     }
     const skills = await environmentManager.getSkillPreviews(environmentId);
     return { environmentId, skills };
+  });
+
+  app.post<{ Body: Record<string, unknown> }>("/api/environments/identify-available", async (request, reply) => {
+    const body = request.body ?? {};
+    const latitude = body.latitude;
+    const longitude = body.longitude;
+    if (typeof latitude !== "number" || !Number.isFinite(latitude) || typeof longitude !== "number" || !Number.isFinite(longitude)) {
+      reply.code(400).send({ error: "Missing or invalid latitude/longitude" });
+      return;
+    }
+
+    const source = body.source;
+    const identifyRequest: IdentifyAvailableRequest = {
+      latitude,
+      longitude,
+      ...(typeof body.horizontalAccuracy === "number" ? { horizontalAccuracy: body.horizontalAccuracy } : {}),
+      ...(source === "visit" || source === "region" || source === "manual" ? { source: source as IdentifySource } : {}),
+      ...(typeof body.dwellSeconds === "number" ? { dwellSeconds: body.dwellSeconds } : {}),
+      ...(typeof body.isStationary === "boolean" ? { isStationary: body.isStationary } : {}),
+      ...(typeof body.speedMetersPerSecond === "number" ? { speedMetersPerSecond: body.speedMetersPerSecond } : {}),
+      ...(typeof body.observedAt === "string" ? { observedAt: body.observedAt } : {}),
+    };
+
+    const candidates = await environmentIdentifier.identifyAvailableEnvironments(identifyRequest);
+    return { candidates };
   });
 }

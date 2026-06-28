@@ -46,6 +46,8 @@
 	<string>Rook uses your location to know which place you're in and load that place's skills.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Rook monitors places in the background so the agent gains a place's skills as you arrive, even when the app is closed.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Rook uses motion to tell when you've settled somewhere (not driving) before identifying nearby environments.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Rook listens to your voice so you can talk to your agent.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
