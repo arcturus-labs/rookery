@@ -1,6 +1,6 @@
 import type { EnvironmentCandidate, IdentifyAvailableRequest } from "../../shared/environment.js";
 import type { BuildingSkillSuggester } from "./BuildingSkillSuggester.js";
-import { isKnownOperator, operatorDomain } from "./operatorAliases.js";
+import { domainFromWebsite, isKnownOperator, operatorDomain } from "./operatorAliases.js";
 import type { PoiLookupProvider, PoiResult } from "./PoiLookupProvider.js";
 
 /** Minimal repository surface needed to check if an environment is known. */
@@ -37,7 +37,9 @@ export class EnvironmentIdentifier {
 
   private async toCandidate(poi: PoiResult, request: IdentifyAvailableRequest): Promise<EnvironmentCandidate> {
     const operator = poi.operator ?? poi.name;
-    const domain = operatorDomain(operator);
+    // Prefer a domain from the business website (most reliable), else the alias table.
+    const website = typeof poi.raw?.website === "string" ? poi.raw.website : undefined;
+    const domain = domainFromWebsite(website) ?? operatorDomain(operator);
     const environmentId = poi.storeNumber ? `loc:${domain}/store-${poi.storeNumber}` : `loc:${domain}`;
 
     const skillPaths = await this.deps.repository.getSkillPaths(environmentId);
@@ -63,8 +65,9 @@ export class EnvironmentIdentifier {
 }
 
 function computeMatchReasons(poi: PoiResult, operator: string, hasKnownEnvironment: boolean): string[] {
-  const reasons: string[] = [];
-  reasons.push(poi.distanceMeters <= 30 ? "nearest_poi" : "nearby_poi");
+  // Prefer provider-supplied signals (e.g. ptiles inside_building/name_match);
+  // otherwise derive a coarse proximity reason from distance.
+  const reasons: string[] = poi.matchReasons?.length ? [...poi.matchReasons] : [poi.distanceMeters <= 30 ? "nearest_poi" : "nearby_poi"];
   if (poi.storeNumber && isKnownOperator(operator)) reasons.push("operator_store_match");
   if (hasKnownEnvironment) reasons.push("known_environment");
   return reasons;
@@ -81,6 +84,10 @@ function computeConfidence(poi: PoiResult, request: IdentifyAvailableRequest, op
 
   if (isKnownOperator(operator)) score += 0.2;
   if (poi.storeNumber) score += 0.1;
+
+  // Provider match quality (ptiles): containment and name agreement are strong signals.
+  if (poi.matchReasons?.includes("inside_building")) score += 0.25;
+  if (poi.matchReasons?.includes("name_match")) score += 0.15;
 
   // Motion/dwell signal: stationary or meaningful dwell raises confidence;
   // clearly moving (driving-like speed) lowers it.

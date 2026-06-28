@@ -72,6 +72,7 @@ vi.mock("./agents/sessionLog.js", async (importOriginal) => {
 });
 
 const { buildServer } = await import("./index");
+const { StubPoiLookupProvider } = await import("./location/StubPoiLookupProvider.js");
 
 async function listen(app: Awaited<ReturnType<typeof buildServer>>): Promise<string> {
   await app.listen({ host: "127.0.0.1", port: 0 });
@@ -399,7 +400,7 @@ describe("server", () => {
   });
 
   it("identifies available environments from a location", async () => {
-    const app = await buildServer({ enableClient: false });
+    const app = await buildServer({ enableClient: false, poiProvider: new StubPoiLookupProvider() });
     const response = await app.inject({
       method: "POST",
       url: "/api/environments/identify-available",

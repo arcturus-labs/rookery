@@ -23,6 +23,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "dotenv": "^17.4.2",
     "fastify": "^5.6.2",
+    "h3-js": "^4.4.0",
     "pi-acp": "github:arcturus-labs/pi-acp#5bd448f",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

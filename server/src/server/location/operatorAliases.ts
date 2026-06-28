@@ -35,3 +35,14 @@ export function operatorDomain(name: string): string {
 export function isKnownOperator(name: string): boolean {
   return Boolean(OPERATOR_DOMAINS[normalizeKey(name)]);
 }
+
+/** Extract a stable operator domain from a business website URL, or null. */
+export function domainFromWebsite(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const host = new URL(/^[a-z]+:\/\//i.test(url) ? url : `http://${url}`).hostname.toLowerCase();
+    return host.replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+}

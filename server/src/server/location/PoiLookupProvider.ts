@@ -11,6 +11,8 @@ export interface PoiResult {
   longitude: number;
   /** Distance from the requested coordinate, in meters. */
   distanceMeters: number;
+  /** Provider-supplied match signals (e.g. "inside_building", "name_match", "nearby"). */
+  matchReasons?: string[];
   /** Raw provider payload, for debugging / future enrichment. */
   raw?: Record<string, unknown>;
 }

@@ -8,12 +8,14 @@ import { EnvironmentManager } from "./environment/EnvironmentManager.js";
 import { LocalEnvironmentRepository } from "./environment/LocalEnvironmentRepository.js";
 import { EnvironmentIdentifier } from "./location/EnvironmentIdentifier.js";
 import { MockBuildingSkillSuggester } from "./location/BuildingSkillSuggester.js";
-import { StubPoiLookupProvider } from "./location/StubPoiLookupProvider.js";
+import { PtilesPoiLookupProvider } from "./location/PtilesPoiLookupProvider.js";
+import type { FetchRange } from "./location/ptiles/PtilesRangeSource.js";
 import type { PoiLookupProvider } from "./location/PoiLookupProvider.js";
 import { REPO_ROOT } from "./paths.js";
 import { SessionRoomManager } from "./realtime/SessionRoomManager.js";
 import { registerAgentRoutes } from "./routes/agentRoutes.js";
 import { registerEnvironmentRoutes } from "./routes/environmentRoutes.js";
+import { registerPtilesProxyRoutes } from "./routes/ptilesProxyRoutes.js";
 import { registerWebsocketRoute } from "./routes/websocketRoute.js";
 
 dotenv.config({ path: path.join(REPO_ROOT, ".env") });
@@ -27,7 +29,7 @@ export interface BuildServerOptions {
   roomIdleTimeoutMs?: number;
   /** SQLite location for persistent environment decisions; ":memory:" in tests. */
   environmentDecisionStoreLocation?: string;
-  /** Override the POI lookup provider (defaults to the network-free stub). */
+  /** Override the POI lookup provider (defaults to the ptiles provider via the proxy route). */
   poiProvider?: PoiLookupProvider;
 }
 
@@ -36,8 +38,17 @@ export async function buildServer(options: BuildServerOptions = {}) {
   const environmentRepository = new LocalEnvironmentRepository();
   const environmentDecisionStore = new EnvironmentDecisionStore(options.environmentDecisionStoreLocation);
   const environmentManager = new EnvironmentManager(environmentRepository, environmentDecisionStore);
+  // Range-fetch ptiles data through the in-process proxy route (single egress).
+  const fetchRange: FetchRange = async (file, start, endInclusive) => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/ptiles/proxy?file=${encodeURIComponent(file)}`,
+      headers: { range: `bytes=${start}-${endInclusive}` },
+    });
+    return { status: res.statusCode, body: new Uint8Array(res.rawPayload) };
+  };
   const environmentIdentifier = new EnvironmentIdentifier({
-    poiProvider: options.poiProvider ?? new StubPoiLookupProvider(),
+    poiProvider: options.poiProvider ?? new PtilesPoiLookupProvider({ fetchRange }),
     repository: environmentRepository,
     skillSuggester: new MockBuildingSkillSuggester(),
   });
@@ -53,6 +64,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
   });
 
   await registerAgentRoutes(app, { roomManager, environmentManager });
+  await registerPtilesProxyRoutes(app);
   await registerEnvironmentRoutes(app, environmentManager, environmentIdentifier);
   await registerWebsocketRoute(app, roomManager);
 
