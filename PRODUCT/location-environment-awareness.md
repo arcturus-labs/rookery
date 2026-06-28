@@ -25,8 +25,13 @@ and the follow-up work. See also
    (server type in `server/src/shared/environment.ts`).
 
 3. **Server-side lookup (ptiles).** `EnvironmentIdentifier` calls a pluggable
-   `PoiLookupProvider`. The real one, `PtilesPoiLookupProvider`, replicates the
-   `steele.red/ptiles` lat/lng → building + business matching server-side:
+   `PoiLookupProvider` (`server/src/server/location/PoiLookupProvider.ts`). The real
+   one, `PtilesPoiLookupProvider`, replicates the `steele.red/ptiles` lat/lng →
+   building + business matching server-side. **The provider is swappable**: replacing
+   ptiles with the **Google Places API**, **Foursquare**, or similar is a single new
+   `PoiLookupProvider` class — `EnvironmentIdentifier`, the `loc:` id scheme, the
+   in-building tightening, and registration are all provider-agnostic and unchanged.
+   The ptiles implementation:
    - All external data is fetched through a single egress proxy route,
      `GET /api/ptiles/proxy` (`routes/ptilesProxyRoutes.ts`), which forwards **HTTP
      Range** requests to `maps.mydatatimeline.com` for allowlisted files only. Nothing
@@ -75,6 +80,13 @@ and the follow-up work. See also
   stable id base.
 - **Store numbers are best-effort** — only present when the chain encodes them in the
   website URL.
+- **The ptiles data is static and self-hostable.** The `.ptiles` files are immutable,
+  range-served blobs and the proxy route abstracts the origin via `PTILES_BASE_URL`, so
+  Rook can host them itself (own storage / CDN) instead of relying on a third party.
+- **Manual / home `loc:` injection is trivial.** Because ids are just `<kind>:<path>`,
+  a home (or any personal) location can be injected with the same `loc:` scheme (e.g.
+  `loc:home`) — no special-casing — so a user's home-specific skills attach through the
+  same hierarchical model as business `loc:` environments.
 
 ## 3. Limitations (as-built)
 
@@ -98,16 +110,35 @@ and the follow-up work. See also
   `BuildingSkillSuggester` (placeholder for #22). Skill-less neighbors don't create their
   own offer; they're represented inside the current env's context bundle.
 - **`maps.mydatatimeline.com` is an external dependency** reached only through the proxy
-  route; its availability gates live identification.
+  route; its availability gates live identification — but the `.ptiles` files are static
+  and could be trivially self-hosted by Rook (flip `PTILES_BASE_URL`), making this a soft
+  dependency rather than a hard one.
 
-## 4. Follow-up work
+## 4. Business context without skills
+
+Business metadata is injected into the agent's context **even when no skills exist** for
+that place. The synthesized location-context skill is always attached to the current env
+(via `extraSkillPaths`) and auto-entered, so the agent immediately has the current
+business + same-building neighbors with their `loc:` ids, operator, address, website, and
+coordinates.
+
+This already enables metadata-grounded answers with zero authored skills — e.g. the agent
+can answer "what's this store's website / address?" directly, and "what hours is it open?"
+by **following the injected website link**. Caveat: ptiles supplies the website URL, not
+live hours, so hours (and anything not in the metadata) require the agent to fetch the
+site.
+
+## 5. Follow-up work
 
 - **Skills at scale (#22).** Author `loc:` skills at the operator/domain level so every
   branch inherits them hierarchically; replace the mocked suggester.
-- **Proactive location-triggered agent.** Auto-prompt the agent on environment entry
-  (e.g. "you've arrived at X — any pending reminders apply?"), backed by an
-  intents/reminders store and **APNs push** delivery (the app is usually backgrounded),
-  with cost/consent guards. Enables "remind me to buy milk at the next grocery store."
+- **Proactive location-triggered agent.** Have a **location change auto-generate a
+  prompt to the agent** on entry ("you've entered / are near X — do any pending user
+  intents apply?"), backed by an intents/reminders store and **APNs push** delivery (the
+  app is usually backgrounded), with cost/consent guards. Enables "remind me to buy milk
+  at the next grocery store" firing when the user enters or is near a grocery store.
+- **Favicon on entry (client).** Show the business's favicon (derived from its website
+  domain) when entering a `loc:` business, for quick visual presence in the UI.
 - **Persistent, per-user presence.** Persist availability and tie it to a user account so
   it survives restarts and a laptop session reliably shares the phone's location.
 - **iPhone candidate-picker UI.** Let the user disambiguate when arrival is ambiguous
