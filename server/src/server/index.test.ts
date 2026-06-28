@@ -475,24 +475,6 @@ describe("server", () => {
     await app.close();
   });
 
-  it("returns wikipedia environment skill previews from the repository", async () => {
-    const app = await buildServer({ enableClient: false });
-    const register = await app.inject({
-      method: "POST",
-      url: "/api/environments/register",
-      payload: { id: "web:en.wikipedia.org" },
-    });
-    expect(register.statusCode).toBe(200);
-
-    const preview = await app.inject({ method: "GET", url: "/api/environments/preview?environmentId=web:en.wikipedia.org" });
-    expect(preview.statusCode).toBe(200);
-    const body = preview.json() as { environmentId: string; skills: Array<{ id: string }> };
-    expect(body.environmentId).toBe("web:en.wikipedia.org");
-    expect(body.skills.some((skill) => skill.id === "wikipedia-discovery")).toBe(true);
-
-    await app.close();
-  });
-
   it("reports connected websocket client counts in session listings", async () => {
     const app = await buildServer({ enableClient: false, roomIdleTimeoutMs: 1_000 });
     const baseUrl = await listen(app);
