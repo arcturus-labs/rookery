@@ -10,7 +10,7 @@
  *   npm run trace:map -- <file.gpx> [stride] [out.html]
  *   (stride replays every Nth trackpoint; default 10. out defaults to <gpx>.map.html)
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AdminReader } from "../src/server/location/ptiles/AdminReader.js";
@@ -32,27 +32,25 @@ const directFetchRange: FetchRange = async (file, start, end) => {
 
 type Feature = Record<string, unknown>;
 
-async function main(): Promise<void> {
-  const gpxPath = process.argv[2];
-  if (!gpxPath) {
-    console.error("usage: npm run trace:map -- <file.gpx> [stride] [out.html]");
-    process.exit(1);
-  }
-  const stride = Math.max(1, Number(process.argv[3] ?? 10) || 10);
-  const outPath = process.argv[4] ?? gpxPath.replace(/\.[^.]+$/, "") + ".map.html";
+export interface TraceMapStats {
+  state: string;
+  points: number;
+  sampled: number;
+  matches: number;
+  buildings: number;
+}
 
+/** Render a GPX + its ptiles matches to a self-contained HTML map at `outPath`. */
+export async function writeTraceMap(gpxPath: string, stride: number, outPath: string): Promise<TraceMapStats | null> {
   const all = parseGpxPoints(await readFile(gpxPath, "utf8"));
-  const points = all.filter((_, i) => i % stride === 0);
-  console.log(`Tracing ${points.length} of ${all.length} point(s) (stride ${stride})…`);
+  if (all.length === 0) return null;
+  const points = all.filter((_, i) => i % Math.max(1, stride) === 0);
 
   // Resolve the state once (a single run stays in one state); reuse for all points.
   const adminReader = new AdminReader(new PtilesRangeSource("US.admin.ptiles", directFetchRange));
   const admin0 = await adminReader.query(points[0].lat, points[0].lon);
   const abbrev = stateAbbrev(admin0?.state);
-  if (!abbrev) {
-    console.error(`Could not resolve a US state for the first point (${admin0?.state ?? "ocean/none"}).`);
-    process.exit(1);
-  }
+  if (!abbrev) return null;
   const buildings = new PtilesRangeSource(`${abbrev}.buildings_v8.ptiles`, directFetchRange);
   const business = new PtilesRangeSource(`${abbrev}.business.ptiles`, directFetchRange);
   await Promise.all([buildings.init(), business.init()]);
@@ -99,8 +97,26 @@ async function main(): Promise<void> {
     features: [route, ...buildingFeatures.values(), ...businessFeatures, ...matchedPoints],
   };
 
+  await mkdir(path.dirname(outPath), { recursive: true });
   await writeFile(outPath, htmlPage(geojson, { gpx: path.basename(gpxPath), state: abbrev, total: all.length, sampled: points.length, matches, buildings: buildingFeatures.size }), "utf8");
-  console.log(`Matches: ${matches}/${points.length}; buildings: ${buildingFeatures.size}. Wrote ${outPath}`);
+  return { state: abbrev, points: all.length, sampled: points.length, matches, buildings: buildingFeatures.size };
+}
+
+async function main(): Promise<void> {
+  const gpxPath = process.argv[2];
+  if (!gpxPath) {
+    console.error("usage: npm run trace:map -- <file.gpx> [stride] [out.html]");
+    process.exit(1);
+  }
+  const stride = Math.max(1, Number(process.argv[3] ?? 10) || 10);
+  const outPath = process.argv[4] ?? gpxPath.replace(/\.[^.]+$/, "") + ".map.html";
+  console.log(`Tracing ${gpxPath} (stride ${stride})…`);
+  const stats = await writeTraceMap(gpxPath, stride, outPath);
+  if (!stats) {
+    console.error("No points or could not resolve a US state for this trace.");
+    process.exit(1);
+  }
+  console.log(`Matches: ${stats.matches}/${stats.sampled}; buildings: ${stats.buildings}. Wrote ${outPath}`);
 }
 
 function polygonFeature(b: BuildingMatch): Feature {
