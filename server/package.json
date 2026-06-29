@@ -13,7 +13,8 @@
     "test:watch": "node ./node_modules/vitest/vitest.mjs",
     "test:coverage": "node ./node_modules/vitest/vitest.mjs run --coverage",
     "dev:dummy": "node ../dummy-client/server.mjs",
-    "interact": "bash ../scripts/interact-with-remote-agent.sh"
+    "interact": "bash ../scripts/interact-with-remote-agent.sh",
+    "replay:gpx": "node ./node_modules/tsx/dist/cli.mjs scripts/replay-gpx.ts"
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.44.0",
