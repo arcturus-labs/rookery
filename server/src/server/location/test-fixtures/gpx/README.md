@@ -2,8 +2,8 @@
 
 Real-world GPX traces used by `gpx.test.ts` to exercise `parseGpxPoints` against
 varied creators/formats. All are public GPS traces from OpenStreetMap, in **NC/TN**
-(the two states whose ptiles `buildings_v8` index is currently valid, so they also
-work with the `trace:map` diagnostic).
+(chosen when those were the only states with a valid ptiles `buildings_v8` index; that
+gap has since been fixed upstream, so any state now works with the `trace:map` diagnostic).
 
 Source: `https://www.openstreetmap.org/traces/<id>/data` (originals were bzip2-compressed
 and have been decompressed here). OSM GPS trace data is licensed **ODbL**.

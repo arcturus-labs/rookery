@@ -151,13 +151,13 @@ arrival; clearly-moving requests register nothing. This composes with the on-dev
 gate (`LocationProvider.arrivalContext`) and works for both a parked car (0 m/s, sustained)
 and someone standing in a store. No motion signal ⇒ permissive (back-compat).
 
-> **Data limitation — building index.** Building-footprint matching needs a per-state
-> ptiles `buildings_v8` index. A survey found **only NC and TN have a valid index today**;
-> every other surveyed state ships an empty index (`indexLength=4`, count 0) despite having
-> blocks, so in-building precision (inside-vs-near, same-building grouping) silently
-> degrades to the 10 m business radius there (business identification still works). The
-> provider now logs a one-time warning per such state. Fix is upstream: re-export the
-> `buildings_v8` files with proper indexes.
+> **Building index (resolved).** Building-footprint matching needs a per-state ptiles
+> `buildings_v8` index. An earlier survey found only NC/TN indexed and every other state
+> shipping an empty index (`indexLength=4`) — so in-building precision silently degraded
+> to the 10 m business radius there. **This has since been fixed upstream**: a re-survey
+> of 25 states (incl. CA/TX/NY/FL/GA/…) shows all now carry valid indexes, and previously-
+> broken points (e.g. a GA Home Depot) now resolve `inPoly=true`. The provider keeps a
+> one-time empty-index warning as a guard against future regressions.
 
 ## 6. Follow-up work
 
