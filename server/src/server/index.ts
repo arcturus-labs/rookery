@@ -13,13 +13,12 @@ import { EnvironmentIdentifier } from "./location/EnvironmentIdentifier.js";
 import { MockBuildingSkillSuggester } from "./location/BuildingSkillSuggester.js";
 import { PtilesPoiLookupProvider } from "./location/PtilesPoiLookupProvider.js";
 import { LocationRegistrar } from "./location/LocationRegistrar.js";
-import type { FetchRange } from "./location/ptiles/PtilesRangeSource.js";
+import { createUpstreamFetchRange } from "./location/ptiles/ptilesFetch.js";
 import type { PoiLookupProvider } from "./location/PoiLookupProvider.js";
 import { REPO_ROOT } from "./paths.js";
 import { SessionRoomManager } from "./realtime/SessionRoomManager.js";
 import { registerAgentRoutes } from "./routes/agentRoutes.js";
 import { registerEnvironmentRoutes } from "./routes/environmentRoutes.js";
-import { registerPtilesProxyRoutes } from "./routes/ptilesProxyRoutes.js";
 import { registerWebsocketRoute } from "./routes/websocketRoute.js";
 
 dotenv.config({ path: path.join(REPO_ROOT, ".env") });
@@ -46,15 +45,9 @@ export async function buildServer(options: BuildServerOptions = {}) {
   const environmentRepositoryService = new EnvironmentRepositoryService(environmentRepository);
   const environmentDecisionStore = new EnvironmentDecisionStore(options.environmentDecisionStoreLocation);
   const environmentManager = new EnvironmentManager(environmentRepositoryService, environmentDecisionStore);
-  // Range-fetch ptiles data through the in-process proxy route (single egress).
-  const fetchRange: FetchRange = async (file, start, endInclusive) => {
-    const res = await app.inject({
-      method: "GET",
-      url: `/api/ptiles/proxy?file=${encodeURIComponent(file)}`,
-      headers: { range: `bytes=${start}-${endInclusive}` },
-    });
-    return { status: res.statusCode, body: new Uint8Array(res.rawPayload) };
-  };
+  // Ptiles is an internal geo-identification detail: fetch byte ranges directly from
+  // the upstream host (single egress, allowlisted file names) — no public route.
+  const fetchRange = createUpstreamFetchRange();
   const environmentIdentifier = new EnvironmentIdentifier({
     poiProvider: options.poiProvider ?? new PtilesPoiLookupProvider({ fetchRange }),
     repository: environmentRepositoryService,
@@ -73,7 +66,6 @@ export async function buildServer(options: BuildServerOptions = {}) {
   });
 
   await registerAgentRoutes(app, { roomManager, environmentManager });
-  await registerPtilesProxyRoutes(app);
   await registerEnvironmentRoutes(app, environmentManager, environmentIdentifier, locationRegistrar);
   await registerWebsocketRoute(app, roomManager);
 

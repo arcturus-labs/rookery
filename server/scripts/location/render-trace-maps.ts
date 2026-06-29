@@ -8,8 +8,8 @@
 import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseGpxPoints } from "../src/server/location/gpx.js";
-import { REPO_ROOT } from "../src/server/paths.js";
+import { parseGpxPoints } from "../../src/server/location/gpx.js";
+import { REPO_ROOT } from "../../src/server/paths.js";
 import { writeTraceMap } from "./trace-map.js";
 
 const FIXTURES = path.join(REPO_ROOT, "server", "src", "server", "location", "test-fixtures", "gpx");

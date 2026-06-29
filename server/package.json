@@ -15,11 +15,11 @@
     "test:fixtures": "GPX_FIXTURES=1 node ./node_modules/vitest/vitest.mjs run src/server/location/gpx.test.ts",
     "dev:dummy": "node ../dummy-client/server.mjs",
     "interact": "bash ../scripts/interact-with-remote-agent.sh",
-    "replay:gpx": "node ./node_modules/tsx/dist/cli.mjs scripts/replay-gpx.ts",
-    "trace:map": "node ./node_modules/tsx/dist/cli.mjs scripts/trace-map.ts",
-    "dwell:analysis": "node ./node_modules/tsx/dist/cli.mjs scripts/dwell-analysis.ts",
-    "fetch:traces": "node ./node_modules/tsx/dist/cli.mjs scripts/fetch-validation-traces.ts",
-    "maps:traces": "node ./node_modules/tsx/dist/cli.mjs scripts/render-trace-maps.ts"
+    "replay:gpx": "node ./node_modules/tsx/dist/cli.mjs scripts/location/replay-gpx.ts",
+    "trace:map": "node ./node_modules/tsx/dist/cli.mjs scripts/location/trace-map.ts",
+    "dwell:analysis": "node ./node_modules/tsx/dist/cli.mjs scripts/location/dwell-analysis.ts",
+    "fetch:traces": "node ./node_modules/tsx/dist/cli.mjs scripts/location/fetch-validation-traces.ts",
+    "maps:traces": "node ./node_modules/tsx/dist/cli.mjs scripts/location/render-trace-maps.ts"
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.44.0",

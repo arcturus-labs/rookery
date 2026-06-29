@@ -1,5 +1,4 @@
 import CoreLocation
-import CoreMotion
 import Foundation
 
 /// Context captured when the device appears to have meaningfully arrived
@@ -32,9 +31,6 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
     private let manager = CLLocationManager()
     private var monitoredPlaces: [String: Place] = [:]
 
-    /// Latest known motion activity, used to reject driving-like arrivals.
-    private let motionManager = CMMotionActivityManager()
-    private var latestActivityIsAutomotive = false
     /// Speed (m/s) at or below which we treat the device as effectively settled.
     private let stationarySpeedThreshold: Double = 1.5
 
@@ -43,15 +39,6 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        startMotionUpdatesIfAvailable()
-    }
-
-    private func startMotionUpdatesIfAvailable() {
-        guard CMMotionActivityManager.isActivityAvailable() else { return }
-        motionManager.startActivityUpdates(to: .main) { [weak self] activity in
-            guard let self, let activity else { return }
-            self.latestActivityIsAutomotive = activity.automotive && activity.confidence != .low
-        }
     }
 
     var isAuthorized: Bool {
@@ -205,7 +192,9 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
                 arrivalDate: arrivalDate,
                 horizontalAccuracy: accuracy,
                 speed: currentLocation?.speed,
-                isAutomotive: latestActivityIsAutomotive,
+                // Motion/Fitness permission was dropped; rely on speed + the server dwell gate.
+                // (Re-add CMMotionActivity here if drive-by false-positives appear.)
+                isAutomotive: false,
                 now: Date(),
                 stationarySpeedThreshold: stationarySpeedThreshold
             ) else { return }
