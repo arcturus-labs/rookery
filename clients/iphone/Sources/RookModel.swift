@@ -803,7 +803,9 @@ final class RookModel: ObservableObject {
             handleEnvironmentOfferResolved(environmentId)
         case .environmentEntered(let environmentId):
             if enteredEnvironments.insert(environmentId).inserted {
-                appendBlock(.system(text: "Entered environment \(environmentId) — skills loaded."))
+                let entered = nearbyCandidates.first { $0.environmentId == environmentId }
+                let websites = orderedUniqueWebsites(entered: entered, all: nearbyCandidates)
+                appendBlock(.environment(EnvironmentBanner(displayName: entered?.displayName, websites: websites)))
             }
         case .environmentExited(let environmentId, let error):
             if enteredEnvironments.remove(environmentId) != nil {
@@ -812,6 +814,22 @@ final class RookModel: ObservableObject {
             }
         }
         scrollTick += 1
+    }
+
+    /// Website URLs for the entered-business favicon row: the entered business first,
+    /// then nearby candidates that have a website, deduped by host.
+    private func orderedUniqueWebsites(entered: EnvironmentCandidate?, all: [EnvironmentCandidate]) -> [String] {
+        let ordered = ([entered].compactMap { $0 } + all.filter { $0.environmentId != entered?.environmentId })
+        var seenHosts = Set<String>()
+        var result: [String] = []
+        for candidate in ordered {
+            guard let website = candidate.website, !website.isEmpty else { continue }
+            let key = URLComponents(string: website.contains("://") ? website : "https://\(website)")?.host ?? website
+            if seenHosts.insert(key.lowercased()).inserted {
+                result.append(website)
+            }
+        }
+        return result
     }
 
     private func appendBlock(_ kind: ChatBlockKind, id: String? = nil) {
