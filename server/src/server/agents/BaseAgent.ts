@@ -236,6 +236,15 @@ export class BaseAgent {
     try {
       const result = await this.sendRequestWithTimeout("session/load", this.buildSessionLoadParams(sessionId, cwd), this.options.startupTimeoutMs ?? 15_000);
       this.emitInitialSessionState(result as AcpSessionNewResult);
+    } catch (error) {
+      // The session couldn't be resumed (e.g. never persisted — Claude Code returns
+      // "Resource not found" for a session with no completed turn). Start a fresh
+      // session instead of crashing the rebuild; the subprocess was already launched
+      // with the new skill paths, so the skills still load (only an unpersisted,
+      // effectively empty conversation is lost).
+      console.warn(`[${this.agentName}] session/load failed (${error instanceof Error ? error.message : String(error)}); starting a fresh session.`);
+      this.sessionRecord = await this.registerSession();
+      await appendSessionRecord(this.sessionRecord);
     } finally {
       this.isReplayingSessionLoad = false;
     }

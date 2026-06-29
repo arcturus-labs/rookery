@@ -28,6 +28,10 @@ process.stdin.on('data', (chunk) => {
       continue;
     }
     if (message.method === 'session/load') {
+      if (message.params.sessionId === 'missing-session') {
+        write({ jsonrpc: '2.0', id: message.id, error: { code: -32602, message: `Resource not found: ${message.params.sessionId}` } });
+        continue;
+      }
       sessionId = message.params.sessionId;
       write({ jsonrpc: '2.0', id: message.id, result: { sessionId } });
       write({

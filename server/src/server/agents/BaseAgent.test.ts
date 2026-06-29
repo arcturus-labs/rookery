@@ -166,6 +166,26 @@ describe("BaseAgent", () => {
     await agent.stop();
   });
 
+  it("falls back to a fresh session when session/load fails (unresumable session)", async () => {
+    const agent = new BaseAgent({
+      command: "node",
+      args: [FIXTURE],
+      cwd: path.resolve("."),
+      sessionCwd: path.resolve("."),
+      agentName: "TestAcpAgent",
+    }, {
+      sessionId: "missing-session", // mock rejects session/load for this id
+      cwd: path.resolve("."),
+    });
+
+    // Resume fails -> should NOT throw; falls back to session/new ("acp-session-1").
+    await expect(agent.ensureStarted()).resolves.toBeUndefined();
+    expect(agent.sessionId).toBe("acp-session-1");
+    expect((agent.record?.restart as { sessionId?: string })?.sessionId).toBe("acp-session-1");
+
+    await agent.stop();
+  });
+
   it("does not throw when auto-responding after stdin is destroyed", () => {
     const agent = new InspectableBaseAgent({
       command: "node",
