@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parseGpxPoints } from "./gpx.js";
+import { parseGpxPoints, parseGpxTrack } from "./gpx.js";
 
 const FIXTURE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "test-fixtures", "gpx");
 const fixtureFiles = readdirSync(FIXTURE_DIR).filter((f) => f.endsWith(".gpx"));
@@ -35,6 +35,24 @@ describe("parseGpxPoints", () => {
 
   it("returns [] for a GPX with no points", () => {
     expect(parseGpxPoints("<gpx><trk><trkseg></trkseg></trk></gpx>")).toEqual([]);
+  });
+});
+
+describe("parseGpxTrack", () => {
+  it("parses lat/lon + <time> (epoch ms), child or self-closing", () => {
+    const xml =
+      `<trkpt lat="36.1" lon="-86.2"><ele>1</ele><time>2026-06-24T00:00:00Z</time></trkpt>` +
+      `<trkpt lat="36.2" lon="-86.3"/>`;
+    const pts = parseGpxTrack(xml);
+    expect(pts).toHaveLength(2);
+    expect(pts[0]).toEqual({ lat: 36.1, lon: -86.2, t: Date.parse("2026-06-24T00:00:00Z") });
+    expect(pts[1]).toEqual({ lat: 36.2, lon: -86.3 }); // no time
+  });
+
+  it("reads timestamps from the real fixtures", () => {
+    const pts = parseGpxTrack(readFileSync(path.join(FIXTURE_DIR, "tn-middle-tennessee-3605997.gpx"), "utf8"));
+    expect(pts.length).toBeGreaterThan(1000);
+    expect(pts.filter((p) => p.t !== undefined).length).toBeGreaterThan(1000);
   });
 });
 

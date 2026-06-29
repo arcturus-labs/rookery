@@ -15,7 +15,9 @@
     "dev:dummy": "node ../dummy-client/server.mjs",
     "interact": "bash ../scripts/interact-with-remote-agent.sh",
     "replay:gpx": "node ./node_modules/tsx/dist/cli.mjs scripts/replay-gpx.ts",
-    "trace:map": "node ./node_modules/tsx/dist/cli.mjs scripts/trace-map.ts"
+    "trace:map": "node ./node_modules/tsx/dist/cli.mjs scripts/trace-map.ts",
+    "dwell:analysis": "node ./node_modules/tsx/dist/cli.mjs scripts/dwell-analysis.ts",
+    "fetch:traces": "node ./node_modules/tsx/dist/cli.mjs scripts/fetch-validation-traces.ts"
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.44.0",
