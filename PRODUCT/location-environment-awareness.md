@@ -9,8 +9,7 @@ and the follow-up work. See also
 [relationship-or-environments-skills-and-agent.md](./relationship-or-environments-skills-and-agent.md),
 [skills-definitions.md](./skills-definitions.md),
 [AS-BUILT-ARCHITECTURE.md](./AS-BUILT-ARCHITECTURE.md) (§6 environments), and
-[PRODUCT_CHANGES/research/rook-on-iphone.md](../PRODUCT_CHANGES/research/rook-on-iphone.md)
-(push/presence).
+[environment-repository.md](./environment-repository.md) (bundle layout).
 
 ## 1. Overview — the end-to-end flow
 
