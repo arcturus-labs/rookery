@@ -1,6 +1,7 @@
 import type { EnvironmentCandidate, IdentifyAvailableRequest } from "../../shared/environment.js";
 import type { BuildingSkillSuggester } from "./BuildingSkillSuggester.js";
 import { locationKey } from "./locationKey.js";
+import { storeNumberFromWebsite } from "./storeNumber.js";
 import { domainFromWebsite, isKnownOperator, operatorDomain } from "./operatorAliases.js";
 import type { PoiLookupProvider, PoiResult } from "./PoiLookupProvider.js";
 
@@ -42,11 +43,8 @@ export class EnvironmentIdentifier {
     const website = typeof poi.raw?.website === "string" ? poi.raw.website : undefined;
     const domain = domainFromWebsite(website) ?? operatorDomain(operator);
 
-    // Per-location key: numeric store id -> address slug -> building centroid / lat,lng.
+    // Per-location key: address slug -> building centroid / lat,lng (no store segment).
     const lk = locationKey({
-      domain,
-      storeNumber: poi.storeNumber,
-      website,
       address: poi.address,
       stateAbbrev: typeof poi.raw?.state === "string" ? poi.raw.state : undefined,
       zip: typeof poi.raw?.zip === "string" ? poi.raw.zip : undefined,
@@ -57,20 +55,22 @@ export class EnvironmentIdentifier {
     });
     const environmentId = `loc:${domain}/${lk.key}`;
 
+    // Store number is optional metadata only: authoritative provider value, else parsed
+    // from the chain's store-locator URL.
+    const storeNumber = poi.storeNumber ?? storeNumberFromWebsite(website, domain) ?? undefined;
+
     const skillPaths = await this.deps.repository.getSkillRuntimePaths(environmentId);
     const hasKnownEnvironment = skillPaths.length > 0;
     const possibleSkills = await this.deps.skillSuggester.suggestSkills({ environmentId, operator });
 
-    const matchReasons = computeMatchReasons(poi, !!lk.storeNumber, hasKnownEnvironment);
-    const confidence = computeConfidence(poi, request, operator, !!lk.storeNumber);
+    const matchReasons = computeMatchReasons(poi, !!storeNumber, hasKnownEnvironment);
+    const confidence = computeConfidence(poi, request, operator, !!storeNumber);
 
     return {
       environmentId,
       displayName: poi.name,
       operator,
-      ...(lk.storeNumber ? { storeNumber: lk.storeNumber } : {}),
-      // "best guess" only when the store number came from the website, not the provider.
-      ...(lk.storeNumber && !poi.storeNumber ? { bestGuessStoreNumber: lk.storeNumber } : {}),
+      ...(storeNumber ? { storeNumber } : {}),
       ...(poi.address ? { address: poi.address } : {}),
       latitude: poi.latitude,
       longitude: poi.longitude,

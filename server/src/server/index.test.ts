@@ -407,7 +407,7 @@ describe("server", () => {
     });
     expect(response.statusCode).toBe(200);
 
-    const currentId = "loc:target.com/123-main-st-springfield-il/store-1842";
+    const currentId = "loc:target.com/123-main-st-springfield-il";
     const events = await eventsPromise;
     const kinds = events.map((m) => m.params?.update?.kind);
     // current is offered (sourceName carried) then auto-entered.
@@ -445,7 +445,7 @@ describe("server", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json() as { candidates: Array<{ environmentId: string; confidence: number }> };
     expect(body.candidates.length).toBeGreaterThanOrEqual(1);
-    expect(body.candidates[0].environmentId).toBe("loc:target.com/123-main-st-springfield-il/store-1842");
+    expect(body.candidates[0].environmentId).toBe("loc:target.com/123-main-st-springfield-il");
     await app.close();
   });
 

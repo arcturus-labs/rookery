@@ -57,13 +57,12 @@ export interface IdentifyAvailableRequest {
 
 /** A ranked candidate environment near the requested coordinate. */
 export interface EnvironmentCandidate {
-  /** Stable URL-like id, e.g. `loc:target.com/store-1842` or `loc:target.com`. */
+  /** Stable URL-like id, e.g. `loc:target.com/tn-37000-1-main-st` or `loc:target.com`. */
   environmentId: string;
   displayName: string;
   operator?: string;
+  /** Optional store/branch number metadata (provider value or parsed from the website). */
   storeNumber?: string;
-  /** Store number guessed from the business website URL (subset of storeNumber). */
-  bestGuessStoreNumber?: string;
   address?: string;
   /** Business coordinate — the path from the loc: id back to a location. */
   latitude?: number;

@@ -101,7 +101,6 @@ public struct EnvironmentCandidate: Codable, Equatable, Identifiable {
     public let displayName: String
     public let operator_: String?
     public let storeNumber: String?
-    public let bestGuessStoreNumber: String?
     public let address: String?
     public let latitude: Double?
     public let longitude: Double?
@@ -117,7 +116,7 @@ public struct EnvironmentCandidate: Codable, Equatable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case environmentId, displayName
         case operator_ = "operator"
-        case storeNumber, bestGuessStoreNumber, address, latitude, longitude, website, distanceMeters, confidence, matchReasons, hasKnownEnvironment, possibleSkills
+        case storeNumber, address, latitude, longitude, website, distanceMeters, confidence, matchReasons, hasKnownEnvironment, possibleSkills
     }
 
     public init(
@@ -125,7 +124,6 @@ public struct EnvironmentCandidate: Codable, Equatable, Identifiable {
         displayName: String,
         operator_: String?,
         storeNumber: String?,
-        bestGuessStoreNumber: String?,
         address: String?,
         latitude: Double?,
         longitude: Double?,
@@ -140,7 +138,6 @@ public struct EnvironmentCandidate: Codable, Equatable, Identifiable {
         self.displayName = displayName
         self.operator_ = operator_
         self.storeNumber = storeNumber
-        self.bestGuessStoreNumber = bestGuessStoreNumber
         self.address = address
         self.latitude = latitude
         self.longitude = longitude

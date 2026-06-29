@@ -25,11 +25,12 @@ const STORE_URL_PATTERNS: Record<string, RegExp> = {
 };
 
 /**
- * Returns the best-guess store number for a business website on a known chain
- * domain, or null when the URL is absent / the domain is unknown / the URL does
- * not match the chain's store-page pattern.
+ * Returns the store number parsed from a business website on a known chain domain,
+ * or null when the URL is absent / the domain is unknown / the URL does not match
+ * the chain's store-page pattern. Used only to populate optional candidate metadata
+ * (store number is not part of the `loc:` key).
  */
-export function bestGuessStoreNumber(url: string | undefined, domain: string): string | null {
+export function storeNumberFromWebsite(url: string | undefined, domain: string): string | null {
   if (!url) return null;
   const pattern = STORE_URL_PATTERNS[domain];
   if (!pattern) return null;

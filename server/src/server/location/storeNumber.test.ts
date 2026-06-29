@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { bestGuessStoreNumber } from "./storeNumber.js";
+import { storeNumberFromWebsite } from "./storeNumber.js";
 
-describe("bestGuessStoreNumber", () => {
+describe("storeNumberFromWebsite", () => {
   it("extracts store numbers from confirmed chain URLs", () => {
     const cases: Array<[string, string, string]> = [
       ["homedepot.com", "https://www.homedepot.com/l/Cleveland/TN/Cleveland/37312/743", "743"],
@@ -18,24 +18,24 @@ describe("bestGuessStoreNumber", () => {
       ["mcdonalds.com", "https://www.mcdonalds.com/us/en-us/location/tn/parsons/346-tennessee-ave-n/36070.html?cid=x", "36070"],
     ];
     for (const [domain, url, expected] of cases) {
-      expect(bestGuessStoreNumber(url, domain), `${domain} ${url}`).toBe(expected);
+      expect(storeNumberFromWebsite(url, domain), `${domain} ${url}`).toBe(expected);
     }
   });
 
   it("returns null for non-store URLs (no false positives)", () => {
     // product / homepage pages
-    expect(bestGuessStoreNumber("https://www.homedepot.com/services/c/garage-door/685fddfb6", "homedepot.com")).toBeNull();
-    expect(bestGuessStoreNumber("https://www.lowes.com/pd/Timberwall/1000208625", "lowes.com")).toBeNull();
-    expect(bestGuessStoreNumber("http://www.target.com", "target.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://www.homedepot.com/services/c/garage-door/685fddfb6", "homedepot.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://www.lowes.com/pd/Timberwall/1000208625", "lowes.com")).toBeNull();
+    expect(storeNumberFromWebsite("http://www.target.com", "target.com")).toBeNull();
     // generic locators / address slugs that must NOT be mistaken for a store id
-    expect(bestGuessStoreNumber("https://www.starbucks.com/store-locator?map=39.6,-101.3,5z", "starbucks.com")).toBeNull();
-    expect(bestGuessStoreNumber("https://www.cicis.com/locations/tn-nashville-5735-nolensville-pike", "cicis.com")).toBeNull();
-    expect(bestGuessStoreNumber("https://www.zaxbys.com/locations/tn/nashville/5228-nolensville-pike/", "zaxbys.com")).toBeNull();
-    expect(bestGuessStoreNumber("https://www.autozone.com/locations/tn/clarksville/1959-madison-st.html", "autozone.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://www.starbucks.com/store-locator?map=39.6,-101.3,5z", "starbucks.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://www.cicis.com/locations/tn-nashville-5735-nolensville-pike", "cicis.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://www.zaxbys.com/locations/tn/nashville/5228-nolensville-pike/", "zaxbys.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://www.autozone.com/locations/tn/clarksville/1959-madison-st.html", "autozone.com")).toBeNull();
   });
 
   it("returns null for unknown domains or missing url", () => {
-    expect(bestGuessStoreNumber("https://example.com/store/5", "example.com")).toBeNull();
-    expect(bestGuessStoreNumber(undefined, "homedepot.com")).toBeNull();
+    expect(storeNumberFromWebsite("https://example.com/store/5", "example.com")).toBeNull();
+    expect(storeNumberFromWebsite(undefined, "homedepot.com")).toBeNull();
   });
 });
