@@ -295,7 +295,8 @@ final class RookModel: ObservableObject {
             observedAt: observedAt
         )
         Task {
-            guard let candidates = try? await api.identifyAvailableEnvironments(request) else {
+            // Dwell/arrival is an auto-commit: register the identified set with the agent.
+            guard let candidates = try? await api.registerLocation(request) else {
                 return
             }
             nearbyCandidates = candidates

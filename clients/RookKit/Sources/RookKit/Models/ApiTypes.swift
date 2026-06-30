@@ -95,7 +95,7 @@ public struct IdentifyAvailableRequest: Encodable, Equatable {
     }
 }
 
-/// A ranked candidate environment returned by `identify-available`.
+/// A ranked candidate environment returned by `identify` / `register-location`.
 public struct EnvironmentCandidate: Codable, Equatable, Identifiable {
     public let environmentId: String
     public let displayName: String

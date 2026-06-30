@@ -76,17 +76,14 @@ export async function registerEnvironmentRoutes(
     return preview;
   });
 
-  app.post<{ Body: Record<string, unknown> }>("/api/environments/identify-available", async (request, reply) => {
-    const body = request.body ?? {};
+  function parseIdentifyRequest(body: Record<string, unknown>): IdentifyAvailableRequest | null {
     const latitude = body.latitude;
     const longitude = body.longitude;
     if (typeof latitude !== "number" || !Number.isFinite(latitude) || typeof longitude !== "number" || !Number.isFinite(longitude)) {
-      reply.code(400).send({ error: "Missing or invalid latitude/longitude" });
-      return;
+      return null;
     }
-
     const source = body.source;
-    const identifyRequest: IdentifyAvailableRequest = {
+    return {
       latitude,
       longitude,
       ...(typeof body.horizontalAccuracy === "number" ? { horizontalAccuracy: body.horizontalAccuracy } : {}),
@@ -96,9 +93,26 @@ export async function registerEnvironmentRoutes(
       ...(typeof body.speedMetersPerSecond === "number" ? { speedMetersPerSecond: body.speedMetersPerSecond } : {}),
       ...(typeof body.observedAt === "string" ? { observedAt: body.observedAt } : {}),
     };
+  }
 
+  // Read-only: reverse-resolve a coordinate to candidate `loc:` environments. No side effects.
+  app.post<{ Body: Record<string, unknown> }>("/api/environments/identify", async (request, reply) => {
+    const identifyRequest = parseIdentifyRequest(request.body ?? {});
+    if (!identifyRequest) {
+      reply.code(400).send({ error: "Missing or invalid latitude/longitude" });
+      return;
+    }
+    return { candidates: await environmentIdentifier.identifyAvailableEnvironments(identifyRequest) };
+  });
+
+  // Committing: identify, then register/auto-enter the dwell set into the SessionRoom/agent.
+  app.post<{ Body: Record<string, unknown> }>("/api/environments/register-location", async (request, reply) => {
+    const identifyRequest = parseIdentifyRequest(request.body ?? {});
+    if (!identifyRequest) {
+      reply.code(400).send({ error: "Missing or invalid latitude/longitude" });
+      return;
+    }
     const candidates = await environmentIdentifier.identifyAvailableEnvironments(identifyRequest);
-    // Make the identified set available to the SessionRoom/agent on a real dwell (best-effort).
     try {
       await locationRegistrar.sync(candidates, {
         isStationary: identifyRequest.isStationary,

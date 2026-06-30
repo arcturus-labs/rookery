@@ -111,13 +111,23 @@ public struct RookAPI {
         )
     }
 
-    /// Ask the server which `loc:` environments are likely available at the
-    /// given location. Identification only — does not register/enter anything.
-    public func identifyAvailableEnvironments(_ request: IdentifyAvailableRequest) async throws -> [EnvironmentCandidate] {
+    /// Read-only: ask which `loc:` environments are likely at the given location.
+    /// Returns candidates without registering or entering anything.
+    public func identifyEnvironments(_ request: IdentifyAvailableRequest) async throws -> [EnvironmentCandidate] {
+        try await postLocation(path: "api/environments/identify", request)
+    }
+
+    /// Committing: identify, then register/auto-enter the dwell set into the
+    /// SessionRoom/agent. Returns the same candidate list.
+    public func registerLocation(_ request: IdentifyAvailableRequest) async throws -> [EnvironmentCandidate] {
+        try await postLocation(path: "api/environments/register-location", request)
+    }
+
+    private func postLocation(path: String, _ request: IdentifyAvailableRequest) async throws -> [EnvironmentCandidate] {
         struct IdentifyResponse: Decodable {
             let candidates: [EnvironmentCandidate]
         }
-        var urlRequest = URLRequest(url: requestURL(path: "api/environments/identify-available", query: [:]))
+        var urlRequest = URLRequest(url: requestURL(path: path, query: [:]))
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try JSONEncoder().encode(request)

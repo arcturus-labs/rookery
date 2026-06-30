@@ -402,7 +402,7 @@ describe("server", () => {
     const eventsPromise = collectJsonMessages(socket, 3);
     const response = await app.inject({
       method: "POST",
-      url: "/api/environments/identify-available",
+      url: "/api/environments/register-location",
       payload: { latitude: 37.3318, longitude: -122.0312, isStationary: true },
     });
     expect(response.statusCode).toBe(200);
@@ -431,7 +431,7 @@ describe("server", () => {
     const app = await buildServer({ enableClient: false, poiProvider: new StubPoiLookupProvider() });
     const response = await app.inject({
       method: "POST",
-      url: "/api/environments/identify-available",
+      url: "/api/environments/identify",
       payload: {
         latitude: 37.3318,
         longitude: -122.0312,
@@ -449,11 +449,11 @@ describe("server", () => {
     await app.close();
   });
 
-  it("rejects identify-available without coordinates", async () => {
+  it("rejects identify without coordinates", async () => {
     const app = await buildServer({ enableClient: false });
     const response = await app.inject({
       method: "POST",
-      url: "/api/environments/identify-available",
+      url: "/api/environments/identify",
       payload: { longitude: -122.0312 },
     });
     expect(response.statusCode).toBe(400);

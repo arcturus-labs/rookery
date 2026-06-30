@@ -44,9 +44,9 @@ async function main(): Promise<void> {
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
     const coord = `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
-    let candidates: Array<{ environmentId: string; displayName: string; bestGuessStoreNumber?: string }> = [];
+    let candidates: Array<{ environmentId: string; displayName: string; storeNumber?: string }> = [];
     try {
-      const resp = await fetch(`${baseUrl}/api/environments/identify-available`, {
+      const resp = await fetch(`${baseUrl}/api/environments/register-location`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ latitude: p.lat, longitude: p.lon, isStationary: true, source: "visit" }),
