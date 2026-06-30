@@ -1,229 +1,85 @@
-# Location Environment Awareness (as-built)
+# Location Environment Awareness
 
-Status: implemented (issue [#42](https://github.com/arcturus-labs/rookery/issues/42), phases 1 + 6/8)
-Scope: turning "the user has arrived somewhere" into available `loc:` environments
-the Rook agent can act on.
+Status: implemented (issue [#42](https://github.com/arcturus-labs/rookery/issues/42)).
+Scope: turning "the user has arrived somewhere" into available `loc:` environments the
+Rook agent can act on.
 
-This documents what was built, the assumptions it rests on, its current limitations,
-and the follow-up work. See also
-[relationship-or-environments-skills-and-agent.md](./relationship-or-environments-skills-and-agent.md),
-[skills-definitions.md](./skills-definitions.md),
-[AS-BUILT-ARCHITECTURE.md](./AS-BUILT-ARCHITECTURE.md) (§6 environments), and
-[environment-repository.md](./environment-repository.md) (bundle layout).
+This is the human-facing product note — what the feature does, what it assumes, where it's
+limited, and what's next. The **architecture** (the request/registration flow, the
+environment model, the agent bridge) lives in
+[AS-BUILT-ARCHITECTURE.md §6.6](./AS-BUILT-ARCHITECTURE.md). Bundle layout is in
+[environment-repository.md](./environment-repository.md).
 
-## 1. Overview — the end-to-end flow
+## What it does
 
-1. **iPhone trigger.** `LocationProvider` (`clients/iphone/Sources/Location/`) listens for
-   `CLVisit` arrivals and gates them: it only fires when the device looks **settled and
-   not driving** (low `CLLocation.speed` plus a `CMMotionActivityManager` non-automotive
-   check). `RookModel.identifyEnvironments` then POSTs the coordinate + context.
+When the iPhone detects you've **settled somewhere** (a `CLVisit` arrival at low speed),
+it asks the server which businesses you're at. The server reverse-resolves the coordinate
+to nearby businesses, picks a **best guess**, and makes that place (plus same-building
+neighbors) available to the agent — so the agent gains the place's skills and knows where
+you are. In chat you see a banner: the **business name** (or **"Surrounding businesses"**
+when it's ambiguous) with a row of business favicons.
 
-2. **Identify API.** `POST /api/environments/identify-available` takes
-   `{ latitude, longitude, horizontalAccuracy?, source?, dwellSeconds?, isStationary?,
-   speedMetersPerSecond?, observedAt? }` and returns ranked `EnvironmentCandidate`s
-   (server type in `server/src/shared/environment.ts`).
+The agent receives a place two ways: its **skills** load on demand, and a concise
+**best-guess + nearby** summary is pushed into the agent's context so it can answer "where
+am I?" directly. The geo provider is **swappable** (ptiles today; a Google Places /
+Foursquare `PoiLookupProvider` would be a single class) — the `loc:` scheme and
+registration are provider-agnostic.
 
-3. **Server-side lookup (ptiles).** `EnvironmentIdentifier` calls a pluggable
-   `PoiLookupProvider` (`server/src/server/location/PoiLookupProvider.ts`). The real
-   one, `PtilesPoiLookupProvider`, replicates the `steele.red/ptiles` lat/lng →
-   building + business matching server-side. **The provider is swappable**: replacing
-   ptiles with the **Google Places API**, **Foursquare**, or similar is a single new
-   `PoiLookupProvider` class — `EnvironmentIdentifier`, the `loc:` id scheme, the
-   in-building tightening, and registration are all provider-agnostic and unchanged.
-   The ptiles implementation:
-   - All external data is fetched through a single egress proxy route,
-     `GET /api/ptiles/proxy` (`routes/ptilesProxyRoutes.ts`), which forwards **HTTP
-     Range** requests to `maps.mydatatimeline.com` for allowlisted files only. Nothing
-     downloads the full 16–53 MB files — only the header + index + dict + the one H3
-     cell block per query (`ptiles/PtilesRangeSource.ts`, zstd via Node's `node:zlib`).
-   - `AdminReader` resolves the US state from `US.admin.ptiles`; `BuildingsReader` does
-     point-in-polygon (else nearest within 50 m); `BusinessReader` decodes nearby
-     businesses (name, operator/brand, address, website, phone, chain count).
+## Assumptions
 
-4. **Stable ids.** `locationKey` builds an **address-first** id:
-   `loc:<domain>/<state-zip-street>` with any **store number appended for precision**
-   (`…/store-729`); a rounded `lat,lng` (building centroid when inside one) is used only
-   when there is no address. Domain comes from the business website host (else an alias
-   table); store numbers come from per-chain website-URL regexes (`storeNumber.ts`,
-   validated against real data). Ids are self-describing / re-queryable — nothing is
-   stored.
+- **US-only** ptiles coverage, fetched on demand by HTTP Range (nothing downloads the full
+  files); the `.ptiles` data is static and self-hostable (`PTILES_BASE_URL`), so the
+  external host is a soft dependency.
+- **Single active user / one server process** — environment availability is global
+  in-memory state shared by all SessionRooms.
+- **Domain ≈ operator identity**; most businesses have a street address, which (with state
+  + zip) is the stable, address-based id base. A home or any personal place can be injected
+  with the same `loc:` scheme (e.g. `loc:home`).
 
-5. **Tightening.** `restrictToPlace` keeps only the businesses **inside the matched
-   building footprint** (or within a 2 m buffer if none), otherwise those within **10 m**
-   of the point — so standing in one store surfaces that store and its same-building
-   neighbors, not a city block.
+## Limitations (as-built)
 
-6. **Registration into the SessionRoom/agent (#6/#8).** On each identify,
-   `LocationRegistrar.sync` makes the set available through the existing environment flow:
-   - the top-ranked **best-guess "current"** business is registered with full metadata
-     and a synthesized **location-context skill** (`LocationContextSkill.ts` writes a
-     `SKILL.md` listing the current business + same-building shops + website/lat-lng),
-     then **auto-entered** (`decideEnvironment(…, "accept")`) so the agent gets the
-     context immediately;
-   - **same-building neighbors** are registered too, so any of their hierarchical skills
-     load (a bundle at `loc:homedepot.com` is inherited by every store);
-   - the set is **replaced on each identify** (unchanged sets are skipped to avoid agent
-     churn; an empty result unregisters everything).
-   - `EnvironmentManager.registerAvailableEnvironment` gained an optional
-     `extraSkillPaths` so an otherwise skill-less env surfaces and carries the context.
-
-## 2. Assumptions
-
-- **US-only coverage**, sourced from `maps.mydatatimeline.com` (`<ST>.buildings_v8.ptiles`,
-  `<ST>.business.ptiles`, `US.admin.ptiles`), H3 resolution-7 tiling, `Accept-Ranges`
-  supported.
-- **Single active user / one server process.** Environment availability is global
-  in-memory state shared by all SessionRooms on that process.
-- **Domain ≈ operator identity.** `loc:` ids key on the operator's web domain.
-- **Most businesses have a street address**; that address (with state + zip) is the
-  stable id base.
-- **Store numbers are best-effort** — only present when the chain encodes them in the
-  website URL.
-- **The ptiles data is static and self-hostable.** The `.ptiles` files are immutable,
-  range-served blobs and the proxy route abstracts the origin via `PTILES_BASE_URL`, so
-  Rook can host them itself (own storage / CDN) instead of relying on a third party.
-- **Manual / home `loc:` injection is trivial.** Because ids are just `<kind>:<path>`,
-  a home (or any personal) location can be injected with the same `loc:` scheme (e.g.
-  `loc:home`) — no special-casing — so a user's home-specific skills attach through the
-  same hierarchical model as business `loc:` environments.
-
-## 3. Limitations (as-built)
-
-- **Not persisted, not per-user.** The registered location lives in memory and is global
-  to the process. It is lost on server restart and is not scoped to a user/account, so on
-  a multi-user server every room would see it.
-- **Agent receives metadata only via the context skill.** The agent runtime still loads
-  only skill *files*; there is no separate channel handing the agent the `environmentId`
-  or structured metadata. The synthesized `SKILL.md` is how the current/nearby metadata
-  reaches the agent.
-- **Entering interrupts an in-flight reply.** `onEnvironmentEntered` rebuilds the agent
-  runtime with `interruptActiveRun: true`, cancelling any active response. The transcript
-  is **preserved** (the new agent resumes via `session/load`) and the chat is **not
-  cleared** — but a mid-reply arrival cuts that reply short and restarts the agent (~a
-  couple seconds). This is pre-existing behavior for all environment changes; location
+- **Not persisted, not per-user.** The registered location lives in memory, global to the
+  process; lost on restart, and on a multi-user server every room would see it.
+- **Entering interrupts an in-flight reply.** Entering an environment rebuilds the agent
+  runtime (`interruptActiveRun`); the transcript is preserved but a mid-reply arrival cuts
+  that reply short (~a couple seconds). Pre-existing for all environment changes; location
   auto-enter just triggers it more often.
-- **Geo-fallback id collisions.** Addressless businesses on the same domain that share a
-  building centroid can map to the same `loc:<domain>/<lat,lng>` id. Rare (geo only
-  applies with no address).
-- **No real `loc:` skills exist yet.** Only the synthesized context skill and the mocked
-  `BuildingSkillSuggester` (placeholder for #22). Skill-less neighbors don't create their
-  own offer; they're represented inside the current env's context bundle.
-- **`maps.mydatatimeline.com` is an external dependency** reached only through the proxy
-  route; its availability gates live identification — but the `.ptiles` files are static
-  and could be trivially self-hosted by Rook (flip `PTILES_BASE_URL`), making this a soft
-  dependency rather than a hard one.
+- **No authored `loc:` skills yet** — only the synthesized location-context bundle and a
+  mocked skill suggester (placeholder for #22).
+- **Geo-fallback id collisions.** Addressless businesses sharing a building centroid can map
+  to the same `loc:<domain>/<lat,lng>` id (rare; geo only applies with no address).
 
-## 4. Business context without skills
+## Dwell tuning
 
-Business metadata is injected into the agent's context **even when no skills exist** for
-that place. The synthesized location-context skill is always attached to the current env
-(via `extraSkillPaths`) and auto-entered, so the agent immediately has the current
-business + same-building neighbors with their `loc:` ids, operator, address, website, and
-coordinates.
+Registration is gated on a real dwell, not a drive-by. Validated against real OSM GPS
+traces (`server/scripts/location/`): ~95% of vehicle detections are <20 s pass-throughs,
+while real visits are minutes-long at ~0 m/s. The gate (`isDwellArrival` —
+`MIN_DWELL_SECONDS = 30`, `STATIONARY_SPEED_MPS = 1.5`) registers only on a
+stationary/dwelled/slow arrival; clearly-moving requests register nothing. No motion signal
+⇒ permissive.
 
-This already enables metadata-grounded answers with zero authored skills — e.g. the agent
-can answer "what's this store's website / address?" directly, and "what hours is it open?"
-by **following the injected website link**. Caveat: ptiles supplies the website URL, not
-live hours, so hours (and anything not in the metadata) require the agent to fetch the
-site.
-
-## 5. Dwell tuning & data validation
-
-Validated against real OSM GPS traces (pedestrian/cycling/vehicle, NC/TN) via
-`server/scripts/dwell-analysis.ts` (corpus in `validation-traces.manifest.json` +
-`fetch-validation-traces.ts`; committed fixtures in `location/test-fixtures/gpx`).
-
-Findings (replaying each timestamped point through the matcher and measuring per-place
-**dwell** = the time span of consecutive points matched to one place):
-- **Pass-throughs dominate continuous motion.** Vehicle traces: ~95% of detections are
-  **<20 s** (most <5 s, 8–12 m/s) — driving past a roadside business. Cycling: ~93% <20 s.
-- **Real visits separate cleanly:** they are **minutes-long at ~0 m/s** (e.g. a 28-min
-  gas-station stop, a 6-min in-building ATM), vs the brief, fast drive-bys.
-- The per-point identify had **no dwell gate**, so a continuous location stream would
-  register dozens of fly-bys.
-
-Tuning applied: **registration is now gated on the request's own dwell/motion signal**
-(`isDwellArrival` in `LocationRegistrar` — `MIN_DWELL_SECONDS = 30`,
-`STATIONARY_SPEED_MPS = 1.5`). The identify endpoint still **returns** the candidate list,
-but only **registers** the location into the SessionRoom/agent on a stationary/dwelled/slow
-arrival; clearly-moving requests register nothing. This composes with the on-device CLVisit
-gate (`LocationProvider.arrivalContext`) and works for both a parked car (0 m/s, sustained)
-and someone standing in a store. No motion signal ⇒ permissive (back-compat).
-
-> **Building index (resolved).** Building-footprint matching needs a per-state ptiles
-> `buildings_v8` index. An earlier survey found only NC/TN indexed and every other state
-> shipping an empty index (`indexLength=4`) — so in-building precision silently degraded
-> to the 10 m business radius there. **This has since been fixed upstream**: a re-survey
-> of 25 states (incl. CA/TX/NY/FL/GA/…) shows all now carry valid indexes, and previously-
-> broken points (e.g. a GA Home Depot) now resolve `inPoly=true`. The provider keeps a
-> one-time empty-index warning as a guard against future regressions.
-
-## 6. End-to-end Simulator validation
-
-CLVisit can't fire in the iOS Simulator, so a DEBUG launch hook drives the identify
-path: `ROOK_SIMULATE_ARRIVAL="lat,lon"` (read in `RookModel.init`, `#if DEBUG`) calls
-`LocationProvider.simulateArrival(...)` once the server is online. Procedure:
-
-```
-# server (real ptiles egress)
-cd server && PORT=3000 npm run dev
-# build + launch the app in a booted Simulator, pointed at a business coordinate
-xcodebuild -scheme Rook -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -derivedDataPath /tmp/rook-dd build
-xcrun simctl install booted /tmp/rook-dd/Build/Products/Debug-iphonesimulator/Rook.app
-SIMCTL_CHILD_ROOK_SERVER_BASE_URL=http://127.0.0.1:3000 \
-SIMCTL_CHILD_ROOK_SIMULATE_ARRIVAL="36.1627,-86.7816" \
-  xcrun simctl launch booted com.rookery.Rook
-```
-
-Verified live: the app POSTs `identify-available`; the server runs the ptiles lookup
-(proxy range calls) and writes the context skill; a connected agent session receives
-`environment_offer_available` with the business `sourceName` + `canonicalSourceUrl`
-(website) and the server enters it (`skillPathCount: 1`).
-
-> **Known issue (agent runtime).** On `environment_entered` the SessionRoom rebuilds the
-> agent runtime to load the skill; with **ClaudeAgent** this currently fails with
-> `Resource not found: <sessionId>` (Claude Code can't `session/load` a just-created
-> session) and the room emits `environment_exited(error)`. The location pipeline is
-> correct (server logs `entered`); this is a ClaudeAgent resume/rebuild concern to fix
-> separately.
-
-## 7. Follow-up work
+## Follow-up work
 
 - **Skills at scale (#22).** Author `loc:` skills at the operator/domain level so every
-  branch inherits them hierarchically; replace the mocked suggester.
-- **Proactive location-triggered agent.** Have a **location change auto-generate a
-  prompt to the agent** on entry ("you've entered / are near X — do any pending user
-  intents apply?"), backed by an intents/reminders store and **APNs push** delivery (the
-  app is usually backgrounded), with cost/consent guards. Enables "remind me to buy milk
-  at the next grocery store" firing when the user enters or is near a grocery store.
-- **Favicon on entry (client).** Show the business's favicon (derived from its website
-  domain) when entering a `loc:` business, for quick visual presence in the UI.
-- **Voice as a (meta-)environment.** The modality the user is interacting through — voice
-  vs. text — is itself an environment factor that could carry skills, the same way a
-  `loc:` place does. A `mode:voice` (or similar) environment could attach voice-tuned
-  skills/behaviors (shorter, TTS-friendly responses; barge-in/turn-taking conventions;
-  read-aloud formatting), entered while the user is talking and exited when they switch
-  back to text. It generalizes the environment model beyond physical/app context to
-  **interaction context**, and composes with `loc:` (e.g. voice + in-a-store). The
-  iPhone/Mac already have a `VoiceController` (`clients/RookKit`) that could act as the
-  provider.
-- **Capability-gated skills (e.g. "look up store hours").** A *store-specific* website (a
-  deep link to this location, not a chain homepage like `kroger.com`) could drive a
-  synthesized "look up hours" skill — hours are usually a single GET away. Doing it right
-  needs two things the codebase lacks today: (a) a **per-agent capability model** —
-  `AgentDefinition` (`server/src/shared/agent.ts`) has no notion of whether the backend can
-  fetch the web (Claude agents can, via WebFetch/Bash; Pi and others may not), so it isn't
-  introspectable; and (b) **per-session/per-agent skill scoping** — environment skills
-  currently attach **globally** (`LocationRegistrar` doesn't know which agent will enter
-  them), so a skill can't be gated on the running agent. Until both exist, such a skill
-  would fire for agents that can't act on it. (Note: the website URL is already in the
-  injected context metadata, so a web-capable agent can answer "what are the hours?"
-  unprompted — see §4.)
-- **Persistent, per-user presence.** Persist availability and tie it to a user account so
-  it survives restarts and a laptop session reliably shares the phone's location.
-- **iPhone candidate-picker UI.** Let the user disambiguate when arrival is ambiguous
-  ("Are you at Target, Starbucks, or CVS?"); register the chosen candidate.
-- **Defer enter-rebuild until idle.** Avoid interrupting an in-flight reply by deferring
-  the entry-triggered runtime rebuild until the agent finishes its turn.
-- **Broaden store-number coverage** (more chains / URL patterns) and **resolve geo-key
-  collisions** (e.g. include a short hash or the business uid for addressless points).
+  branch inherits them; replace the mocked suggester.
+- **Bundles incl. MCP (#5).** Generalize the runtime bridge from skills to bundles so a
+  place can carry MCP servers as well as skills.
+- **Split-endpoint UX.** A read-only `/api/environments/identify` exists alongside the
+  committing `/api/environments/register-location`; a user-confirmed "which of these is
+  real?" picker could use the read-only path instead of auto-entering the best guess.
+- **Proactive location-triggered agent.** Have a location change auto-generate a prompt
+  ("you're near X — any pending intents apply?"), backed by an intents store and **APNs**
+  push, with cost/consent guards ("remind me to buy milk at the next grocery store").
+- **Voice as a (meta-)environment.** The interaction modality (voice vs text) is itself an
+  environment factor that could carry skills via the same model (`mode:voice`), composing
+  with `loc:`. A `VoiceController` already exists in `clients/RookKit`.
+- **Capability-gated skills (e.g. store hours).** A store-specific website could drive a
+  "look up hours" skill, but doing it right needs a per-agent capability model and
+  per-session skill scoping (neither exists yet). The website URL is already in the pushed
+  context, so a web-capable agent can answer hours unprompted.
+- **Persistent, per-user presence**, an **iPhone candidate-picker** for ambiguous arrivals,
+  **deferring the enter-rebuild until idle**, and **broader store-number / geo-collision**
+  handling.
+- **Motion signal.** The Motion/Fitness check was dropped (it was only a drive-by
+  optimization); re-add `CMMotionActivity` if speed + the server dwell gate prove
+  insufficient.
