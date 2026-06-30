@@ -147,10 +147,10 @@ struct SettingsScreen: View {
             if model.locationProvider.authorizationStatus == .authorizedAlways,
                model.locationProvider.motionAvailable,
                !model.locationProvider.motionRequested {
-                CompactActionButton(title: "Use Motion to Ignore Drive-Bys", systemImage: "figure.walk.motion", tint: PanelPalette.accent, prominence: .subtle, helpText: "") {
+                CompactActionButton(title: "Enhance driving detection", systemImage: "car", tint: PanelPalette.accent, prominence: .subtle, helpText: "") {
                     model.locationProvider.requestMotion()
                 }
-                Text("Lets Rook skip places you only drive past.")
+                Text("Uses motion so Rook can skip places you only drive past.")
                     .font(.caption2)
                     .foregroundStyle(PanelPalette.textMuted)
             }
