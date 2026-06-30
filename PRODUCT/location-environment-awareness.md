@@ -58,6 +58,11 @@ while real visits are minutes-long at ~0 m/s. The gate (`isDwellArrival` —
 stationary/dwelled/slow arrival; clearly-moving requests register nothing. No motion signal
 ⇒ permissive.
 
+On the phone, `CLLocation.speed` plus a CoreMotion automotive check (`arrivalContext`) also
+gate the on-device trigger. The Motion permission is requested only as part of granting
+**Always** location (never on first launch); without it the speed + server dwell gate still
+apply.
+
 ## Follow-up work
 
 - **Skills at scale (#22).** Author `loc:` skills at the operator/domain level so every
@@ -80,6 +85,3 @@ stationary/dwelled/slow arrival; clearly-moving requests register nothing. No mo
 - **Persistent, per-user presence**, an **iPhone candidate-picker** for ambiguous arrivals,
   **deferring the enter-rebuild until idle**, and **broader store-number / geo-collision**
   handling.
-- **Motion signal.** The Motion/Fitness check was dropped (it was only a drive-by
-  optimization); re-add `CMMotionActivity` if speed + the server dwell gate prove
-  insufficient.

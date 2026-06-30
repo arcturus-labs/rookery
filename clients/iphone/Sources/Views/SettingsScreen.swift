@@ -120,7 +120,7 @@ struct SettingsScreen: View {
                 statusChip(text: locationStatusText, tint: locationStatusTint)
             }
 
-            Text("Rook loads a place's skills when you arrive. Background arrivals (app closed) need \u{201C}Always\u{201D}.")
+            Text("Rook loads a place's skills when you arrive. Background arrivals (app closed) need \u{201C}Always\u{201D}, which also enables motion so Rook can ignore places you're just driving past.")
                 .font(.caption)
                 .foregroundStyle(PanelPalette.textMuted)
                 .fixedSize(horizontal: false, vertical: true)

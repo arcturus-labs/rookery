@@ -1,4 +1,5 @@
 import CoreLocation
+import CoreMotion
 import Foundation
 
 /// Context captured when the device appears to have meaningfully arrived
@@ -34,11 +35,36 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
     /// Speed (m/s) at or below which we treat the device as effectively settled.
     private let stationarySpeedThreshold: Double = 1.5
 
+    /// Motion activity (used only to reject driving-like arrivals). The OS Motion prompt
+    /// is requested as part of the "Always" location upgrade — never on first launch.
+    private let motionManager = CMMotionActivityManager()
+    private var latestActivityIsAutomotive = false
+    /// Set transiently when we actively call `requestAlwaysAuthorization`, so the Motion
+    /// prompt fires on the resulting Always grant (and not on a launch-time callback).
+    private var pendingMotionFromUpgrade = false
+    private let motionRequestedKey = "RookMotionRequested"
+    private var motionRequested: Bool {
+        get { UserDefaults.standard.bool(forKey: motionRequestedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: motionRequestedKey) }
+    }
+
     override init() {
         authorizationStatus = manager.authorizationStatus
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        // Resume motion updates for users who already granted it (no new prompt).
+        if motionRequested { startMotionUpdatesIfAvailable() }
+    }
+
+    /// Start CoreMotion activity updates. Calling this is what triggers the OS Motion
+    /// permission prompt the first time, so only call it from the Always-upgrade path.
+    private func startMotionUpdatesIfAvailable() {
+        guard CMMotionActivityManager.isActivityAvailable() else { return }
+        motionManager.startActivityUpdates(to: .main) { [weak self] activity in
+            guard let self, let activity else { return }
+            self.latestActivityIsAutomotive = activity.automotive && activity.confidence != .low
+        }
     }
 
     var isAuthorized: Bool {
@@ -54,6 +80,7 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
         if authorizationStatus == .notDetermined {
             manager.requestWhenInUseAuthorization()
         } else if authorizationStatus == .authorizedWhenInUse {
+            pendingMotionFromUpgrade = true
             manager.requestAlwaysAuthorization()
         }
     }
@@ -116,6 +143,14 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
             if status == .authorizedAlways {
                 manager.allowsBackgroundLocationUpdates = true
                 manager.startMonitoringVisits()
+                // Granting Always is the background-arrival flow where drive-by
+                // filtering matters: request Motion here as one step (only when the
+                // Always grant followed an active upgrade, never a launch callback).
+                if self.pendingMotionFromUpgrade && !self.motionRequested {
+                    self.pendingMotionFromUpgrade = false
+                    self.motionRequested = true
+                    self.startMotionUpdatesIfAvailable()
+                }
             }
             if status == .authorizedAlways || status == .authorizedWhenInUse {
                 // Grab an initial fix so the "save a place" UI has coordinates
@@ -126,6 +161,7 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
                 // shows the upgrade prompt once; PlacesScreen also offers a
                 // manual upgrade if the user declines here.
                 if !wasAuthorized && status == .authorizedWhenInUse {
+                    self.pendingMotionFromUpgrade = true
                     manager.requestAlwaysAuthorization()
                 }
             }
@@ -192,9 +228,9 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
                 arrivalDate: arrivalDate,
                 horizontalAccuracy: accuracy,
                 speed: currentLocation?.speed,
-                // Motion/Fitness permission was dropped; rely on speed + the server dwell gate.
-                // (Re-add CMMotionActivity here if drive-by false-positives appear.)
-                isAutomotive: false,
+                // Reject driving-past arrivals when Motion is available (granted with Always);
+                // false (permissive) otherwise — speed + the server dwell gate still apply.
+                isAutomotive: latestActivityIsAutomotive,
                 now: Date(),
                 stationarySpeedThreshold: stationarySpeedThreshold
             ) else { return }
