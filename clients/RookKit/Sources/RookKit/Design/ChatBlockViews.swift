@@ -1,5 +1,10 @@
-import MarkdownUI
+import MarkdownView
 import SwiftUI
+#if os(macOS)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 
 /// Renders one `ChatBlock` from the shared chat model. Reused by the macOS
 /// menu-bar app and the iOS app; the screen-level chat view (composer, scroll,
@@ -134,9 +139,21 @@ private struct AssistantTextBlockView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Markdown(text)
-                        .markdownTheme(rookAssistantMarkdownTheme)
-                        .textSelection(.enabled)
+                    MarkdownText(text)
+                        .foregroundStyle(PanelPalette.textNormal)
+                        .tint(PanelPalette.accentHover, for: .link)
+                        .tint(PanelPalette.hover, for: .inlineCodeBlock)
+                        .font(assistantMarkdownSystemFont(size: 22, weight: .semibold), for: .h1)
+                        .font(assistantMarkdownSystemFont(size: 18, weight: .semibold), for: .h2)
+                        .font(assistantMarkdownSystemFont(size: 15, weight: .semibold), for: .h3)
+                        .font(assistantMarkdownSystemFont(size: 13, weight: .semibold), for: .h4)
+                        .font(assistantMarkdownSystemFont(size: 13, weight: .semibold), for: .h5)
+                        .font(assistantMarkdownSystemFont(size: 12, weight: .semibold), for: .h6)
+                        .font(assistantMarkdownSystemFont(size: 13), for: .body)
+                        .font(assistantMarkdownSystemFont(size: 13), for: .blockQuote)
+                        .font(assistantMarkdownMonospacedFont(size: 12), for: .codeBlock)
+                        .font(assistantMarkdownSystemFont(size: 13), for: .tableBody)
+                        .font(assistantMarkdownSystemFont(size: 13, weight: .semibold), for: .tableHeader)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if streaming {
@@ -153,6 +170,12 @@ private struct AssistantTextBlockView: View {
                 bubbleShape(tailAt: .bottomLeading)
                     .strokeBorder(PanelPalette.border)
             )
+            .overlay(alignment: .topTrailing) {
+                if !streaming {
+                    CopyMarkdownButton(markdown: text)
+                        .padding(8)
+                }
+            }
             Spacer(minLength: 48)
         }
     }
@@ -600,147 +623,81 @@ private struct PlanBlockView: View {
     }
 }
 
-private let rookAssistantMarkdownTheme = Theme()
-    .text {
-        ForegroundColor(PanelPalette.textNormal)
-        BackgroundColor(nil)
-        FontSize(13)
-    }
-    .strong {
-        FontWeight(.semibold)
-    }
-    .emphasis {
-        FontStyle(.italic)
-    }
-    .code {
-        FontFamilyVariant(.monospaced)
-        FontSize(13)
-        ForegroundColor(PanelPalette.textNormal)
-        BackgroundColor(PanelPalette.hover)
-    }
-    .link {
-        ForegroundColor(PanelPalette.accentHover)
-    }
-    .heading1 { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.textNormal)
-                FontWeight(.semibold)
-                FontSize(22)
-            }
-            .markdownMargin(top: 0, bottom: 10)
-    }
-    .heading2 { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.textNormal)
-                FontWeight(.semibold)
-                FontSize(18)
-            }
-            .markdownMargin(top: 0, bottom: 8)
-    }
-    .heading3 { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.textNormal)
-                FontWeight(.semibold)
-                FontSize(15)
-            }
-            .markdownMargin(top: 0, bottom: 8)
-    }
-    .heading4 { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.textNormal)
-                FontWeight(.semibold)
-                FontSize(13)
-            }
-            .markdownMargin(top: 0, bottom: 6)
-    }
-    .heading5 { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.textNormal)
-                FontWeight(.semibold)
-                FontSize(13)
-            }
-            .markdownMargin(top: 0, bottom: 6)
-    }
-    .heading6 { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.secondaryText)
-                FontWeight(.semibold)
-                FontSize(12)
-            }
-            .markdownMargin(top: 0, bottom: 6)
-    }
-    .paragraph { configuration in
-        configuration.label
-            .fixedSize(horizontal: false, vertical: true)
-            .markdownMargin(top: 0, bottom: 8)
-    }
-    .blockquote { configuration in
-        HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(PanelPalette.border)
-                .frame(width: 3)
-            configuration.label
-                .markdownTextStyle {
-                    ForegroundColor(PanelPalette.textNormal)
-                    BackgroundColor(nil)
-                }
-                .padding(.leading, 10)
+private struct CopyMarkdownButton: View {
+    var markdown: String
+    @State private var isHovering = false
+
+    var body: some View {
+        Button {
+            copyTextToClipboard(markdown)
+        } label: {
+            Image(systemName: "doc.on.doc")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isHovering ? PanelPalette.textNormal : PanelPalette.textMuted)
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(PanelPalette.backgroundSecondary.opacity(isHovering ? 0.95 : 0.7))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(PanelPalette.border.opacity(isHovering ? 1 : 0.65))
+                )
         }
-        .fixedSize(horizontal: false, vertical: true)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Copy markdown")
+        .help("Copy markdown")
+        .onHover { isHovering = $0 }
     }
-    .codeBlock { configuration in
-        ScrollView(.horizontal) {
-            configuration.label
-                .fixedSize(horizontal: false, vertical: true)
-                .markdownTextStyle {
-                    FontFamilyVariant(.monospaced)
-                    FontSize(12)
-                    ForegroundColor(PanelPalette.textNormal)
-                    BackgroundColor(nil)
-                }
-                .padding(12)
-        }
-        .background(PanelPalette.hover)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .markdownMargin(top: 0, bottom: 8)
+}
+
+private func assistantMarkdownSystemFont(size: CGFloat, weight: Font.Weight = .regular) -> any CustomCTFontConvertible {
+    #if os(macOS)
+    return NSFont.systemFont(ofSize: size, weight: nsFontWeight(weight))
+    #else
+    return UIFont.systemFont(ofSize: size, weight: uiFontWeight(weight))
+    #endif
+}
+
+private func assistantMarkdownMonospacedFont(size: CGFloat) -> any CustomCTFontConvertible {
+    #if os(macOS)
+    return NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+    #else
+    return UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+    #endif
+}
+
+#if os(macOS)
+private func nsFontWeight(_ weight: Font.Weight) -> NSFont.Weight {
+    switch weight {
+    case .ultraLight: return .ultraLight
+    case .thin: return .thin
+    case .light: return .light
+    case .regular: return .regular
+    case .medium: return .medium
+    case .semibold: return .semibold
+    case .bold: return .bold
+    case .heavy: return .heavy
+    case .black: return .black
+    default: return .regular
     }
-    .listItem { configuration in
-        configuration.label
-            .markdownMargin(top: 2, bottom: 2)
+}
+#else
+private func uiFontWeight(_ weight: Font.Weight) -> UIFont.Weight {
+    switch weight {
+    case .ultraLight: return .ultraLight
+    case .thin: return .thin
+    case .light: return .light
+    case .regular: return .regular
+    case .medium: return .medium
+    case .semibold: return .semibold
+    case .bold: return .bold
+    case .heavy: return .heavy
+    case .black: return .black
+    default: return .regular
     }
-    .table { configuration in
-        configuration.label
-            .fixedSize(horizontal: false, vertical: true)
-            .markdownTableBorderStyle(.init(color: PanelPalette.border))
-            .markdownTableBackgroundStyle(
-                .alternatingRows(PanelPalette.backgroundPrimary.opacity(0.35), PanelPalette.hover.opacity(0.5))
-            )
-            .markdownMargin(top: 0, bottom: 8)
-    }
-    .tableCell { configuration in
-        configuration.label
-            .markdownTextStyle {
-                ForegroundColor(PanelPalette.textNormal)
-                if configuration.row == 0 {
-                    FontWeight(.semibold)
-                }
-                BackgroundColor(nil)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-    }
-    .thematicBreak {
-        Divider()
-            .overlay(PanelPalette.border)
-            .markdownMargin(top: 12, bottom: 12)
-    }
+}
+#endif
 
 private struct StreamingIndicator: View {
     @State private var pulsing = false

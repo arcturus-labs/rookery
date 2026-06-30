@@ -11,13 +11,13 @@ let package = Package(
         .library(name: "RookKit", targets: ["RookKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
+        .package(url: "https://github.com/LiYanan2004/MarkdownView.git", branch: "main"),
     ],
     targets: [
         .target(
             name: "RookKit",
             dependencies: [
-                .product(name: "MarkdownUI", package: "swift-markdown-ui"),
+                .product(name: "MarkdownView", package: "MarkdownView"),
             ]
         ),
         .testTarget(
